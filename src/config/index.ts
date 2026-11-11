@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const optional = z.preprocess(
   (v) => (v === "" ? undefined : v),
-  z.string().optional(),
+  z.string().trim().min(1).optional(),
 );
 export const envSchema = z.object({
   OPENAI_API_KEY: optional,
@@ -27,7 +27,11 @@ export const envSchema = z.object({
     }, "Invalid timezone"),
   BUSINESS_HOURS: z
     .string()
-    .regex(/^\d{2}:\d{2}-\d{2}:\d{2}$/)
+    .regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/)
+    .refine(
+      (v) => v.slice(0, 5) < v.slice(6),
+      "Business hours must end after they start",
+    )
     .default("08:00-18:00"),
   OWNER_PHONE: optional,
   FLOOR_MARGIN_CENTS: z.coerce.number().int().min(5000).default(5000),

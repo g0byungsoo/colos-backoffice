@@ -116,7 +116,11 @@ export function llmReranker(model: string): Reranker {
     );
   };
 }
-export class RagIndex {
+export interface Retriever {
+  build(): Promise<{ chunks: number; embedded: number; model: string }>;
+  search(query: string, options?: SearchOptions): Promise<SearchResult[]>;
+}
+export class RagIndex implements Retriever {
   private chunks: Chunk[] = [];
   readonly cacheDir: string;
   private reranker?: Reranker;

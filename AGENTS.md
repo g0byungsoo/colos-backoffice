@@ -73,3 +73,5 @@ Work in small milestones: contracts and domain, data, retrieval, agents, back of
 ## Writing
 
 Use plain English and short sentences. Match the README's tone. Do not use em dashes, en dashes, double hyphens in prose, marketing words or emojis. Command flags may use their required syntax. Distinguish historical memories, synthetic fixtures and measured results. Describe limitations directly. Do not imply that a dry run tested a live service.
+
+The authoritative build spec is docs/BUILD_SPEC.md. Preserve its text. Root owns src/domain, src/config, package.json and the lockfile. Workers edit only assigned folders. Record offline and live results separately. Missing credentials skip live checks and do not block local work.
