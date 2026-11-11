@@ -115,9 +115,127 @@ Preview applies the active discount and binds approval to the reviewed facts. Se
 
 The Vercel entry point is `api/index.ts`. Cron runs on Monday and Tuesday in UTC. `vercel.json` includes prompts and fixtures. On Vercel, temporary files go under `/tmp/colos`. Persist logs and generated invoices elsewhere before relying on a deployment.
 
+### How it works
+
+#### A call, end to end
+
+[createApp](src/server/app.ts) checks the Twilio signature, then [createConversation](src/agents/phone.ts) looks up the caller before [routeCall](src/domain/routing.ts) chooses a route. The voice handler either dials the owner with a reason whisper or calls [ElevenLabsBridge.register](src/phone/elevenlabs.ts). The hosted agent calls the shared tools through HTTP. The CLI and evals use the local text agent instead. See [architecture](docs/architecture.md#call-entry-and-routing).
+
+```mermaid
+sequenceDiagram
+    participant T as Twilio
+    participant V as /twilio/voice
+    participant R as routeCall
+    participant O as Owner
+    participant E as ElevenLabs
+    participant S as /tools/*
+    participant C as Calls
+    participant L as Per-call log
+    T->>V: Signed request
+    V->>R: Caller lookup and time
+    R-->>V: Route and reason
+    V->>C: Initial row
+    V->>L: Route event
+    alt Person
+        V-->>T: Dial and whisper URL
+        T->>V: Signed whisper request
+        V->>C: Read reason
+        V-->>T: Whisper TwiML
+        T->>O: Dial with whisper
+    else Agent or message
+        V->>E: register-call and variables
+        E-->>V: TwiML
+        V-->>T: Voice TwiML
+        E->>S: Shared secret and call token
+        S->>C: Read identity and save state
+        S->>L: Tools and retrieved ids
+        S-->>E: Tool result
+    end
+```
+
+This shows the configured path. A message route also records a priority callback. Missing integrations take the dry-run branches described below.
+
+| Caller type | Open issue | Business hours | Route |
+|---|---|---|---|
+| Saved depot or supplier | Any | Any | Agent |
+| Saved customer | Yes | Yes | Owner with issue whisper |
+| Saved customer | Yes | No | Agent takes message; priority callback |
+| Saved customer | No | Yes | Owner |
+| Saved customer | No | No | Agent |
+| Unknown | Not yet known | Any | Agent; public facts until verification |
+
+Business hours are 08:00 inclusive to 18:00 exclusive in TIMEZONE by default. There is no weekend calendar. An open order alone does not trigger handoff. A newly verified unknown caller with an open issue is handed off by code.
+
+#### One agent turn
+
+In [createConversation.turn](src/agents/phone.ts), code checks the current input, calls the intent agent, and invokes handoff for an existing order problem. Otherwise the phone agent runs with tools. After the model answers, code replaces action claims with tool outcomes, gives handoff precedence and checks currency again. It then updates Calls and appends the turn log. Model errors and SDK guardrail trips produce a fixed fallback. See [the ordered steps](docs/architecture.md#a-text-turn).
+
+The eight tools come from [createTools](src/agents/tools.ts), with inputs in [toolInputs](src/domain/tool-contracts.ts). Every handler validates its result. After handoff, only handoff remains available. Calls state and logs are saved around tool use; the writes below are the handler's business effects.
+
+| Tool | Who can use it | Code checks | Writes |
+|---|---|---|---|
+| verify_identity | Any caller before handoff | Matching order and company; cannot switch verified account; open issues trigger handoff | Identity state; callback if issue found |
+| availability | Any caller before handoff | Available inventory and optional type/depot filters | None |
+| pickup_status | Verified customer | Order belongs to that customer; readiness from order status | None |
+| pricing | Any caller before handoff | Effective list; stocked supplier; latest fresh cost; margin floor | Allowed quote state |
+| search | Any caller before handoff | Own notes only; current policy only | Local retrieval cache |
+| handoff | Any caller | Marks handoff; selects business-hours message | Priority callback in Outbox |
+| pickup_confirmation | Saved depot or supplier | Order assigned to that party | Alert in Outbox; no order change |
+| negotiate_offer | Verified customer | Own order; fresh cost; code-owned offer decision | Discount Approvals; refresh may append prices and job records |
+
+#### The money path
+
+[priceFloor and decideOffer](src/domain/pricing.ts) enforce cost plus at least 5000 cents. Anything below that is hard_no. Any lower-than-list offer above the floor needs approval. The pricing tool checks effective dates, stocked suppliers and fresh costs before returning a list price. [allowedMoney](src/agents/guardrails.ts) allows only numeric currency returned by pricing in that conversation. It can reject harmless wording too.
+
+[negotiate](src/backoffice/negotiation.ts) parses explicit email offer headers. Code owns the decision; [draftNegotiation](src/agents/negotiator.ts) only chooses permitted wording. [previewInvoice, approveInvoice and sendInvoice](src/backoffice/invoices.ts) recalculate facts, refresh or refuse stale costs, and bind approval to a SHA256 fingerprint. Stripe operations have separate idempotency keys derived from that fingerprint. Send persists the Stripe invoice id before adding items, then checks existing items on retry.
+
+For O001, [verification](docs/verification.md) records list 280000 cents, discount 14000, final 266000, cost 202000 and margin 64000. The floor is 207000 cents, calculated as recorded cost 202000 plus the configured 5000 minimum. The 200000 offer is refused; 220000 needs approval. See [the invoice walkthrough and retry limits](docs/architecture.md#money-from-quote-to-invoice).
+
+#### Retrieval
+
+[RagIndex.buildIndex and search](src/rag/index.ts) split knowledge by heading and keep one chunk per note. `tokenize` lowercases ASCII words, removes fixed stop words and trims some plural endings. BM25 uses k1 = 1.2 and b = 0.75. Vector search uses text-embedding-3-small by default. `fuse` combines ranks with reciprocal rank fusion, k = 60, because BM25 and cosine scores have different scales.
+
+Own-account and current-policy filters run before scoring. Rerank, when enabled for live search, reorders the top 20 fused chunks. The index reuses content hashes inside a model-keyed cache, validates vectors, writes a unique temporary file and atomically renames it. See [retrieval](docs/rag.md) for formulas, filter boundaries and cache behavior.
+
+#### Failure modes
+
+| What fails | What code does |
+|---|---|
+| Sheets 429 | withBackoff retries with exponential delay and jitter, then throws after exhaustion |
+| Conflicting edit | Upsert throws ConflictError before writing; no automatic merge |
+| Supplier layout | Parser rejects; refresh queues an alert and records failure |
+| Stale cost | Public price tool refuses; invoice and negotiation pricing refresh, then refuse if still stale |
+| Model error or guardrail | Text agent uses a fixed fallback; final action and money checks still run |
+| Stripe midway | Retains saved invoice id and operation keys; retries inspect existing items and total |
+| ElevenLabs unreachable | Registration times out or throws; Hono returns generic 500 without automatic transfer |
+| Missing secret | Tool and cron endpoints return 401; unconfigured voice branches return dry-run TwiML |
+
+See [failure behavior](docs/architecture.md#failure-behavior) for exact retry delays, partial-write behavior and the functions involved. Dry-run output is not proof of delivery.
+
+#### Security model
+
+Identity comes from a saved phone lookup or a matching order/company pair. [createTools](src/agents/tools.ts) enforces ownership and handoff state. [issueCallToken and verifyCallToken](src/phone/auth.ts) bind an expiring HMAC token to a saved call. HTTP tools require that token and the shared-secret header. [createApp](src/server/app.ts) validates Twilio signatures and keeps remote tool and cron routes disabled without secrets.
+
+[unsafeInput](src/agents/guardrails.ts) catches selected call instructions and abuse. [suspiciousEmail](src/agents/negotiator.ts) skips model drafting for suspicious emails. Retrieved text is marked as untrusted in prompts, while code restricts access and writes. These are bounded checks. Caller ID is weak authentication, tokens can be reused before expiry, logs contain account data, and local output checks do not inspect hosted voice audio. See [security](docs/security.md).
+
+#### Reading order
+
+These ten files follow the request from entry to evidence. [Architecture](docs/architecture.md) explains the connecting steps.
+
+1. [src/server/app.ts](src/server/app.ts): `createApp`, HTTP entry, authentication and tool state.
+2. [src/domain/routing.ts](src/domain/routing.ts): `routeCall`, caller and time decisions.
+3. [src/agents/phone.ts](src/agents/phone.ts): `createConversation`, turn loop and trace.
+4. [src/agents/tools.ts](src/agents/tools.ts): `createTools`, access checks and side effects.
+5. [src/domain/pricing.ts](src/domain/pricing.ts): `decideOffer`, discounts, floor and staleness.
+6. [src/backoffice/invoices.ts](src/backoffice/invoices.ts): `currentPricing`, preview, approval and send.
+7. [src/data/sheets.ts](src/data/sheets.ts): `SheetsDataSource`, conflicts, caching and backoff.
+8. [src/rag/index.ts](src/rag/index.ts): `RagIndex`, embedding, filtering and ranking.
+9. [src/agents/guardrails.ts](src/agents/guardrails.ts): `unsafeInput` and `allowedMoney`, including their limits.
+10. [evals/run.ts](evals/run.ts): source-row checks, judge, thresholds and reports.
+
 ### Measured evals
 
-These results came from `DATA_SOURCE=local npm run eval -- --repeat 2` in this session. The live run used `gpt-5-mini`, `text-embedding-3-small` and the `gpt-5` judge. Both retrieval and behavior used the fixed labels and scenarios. No labels, thresholds or seed rows were changed to improve a score.
+These results are preserved in [live/full.json](evals/reports/live/full.json), generated on 2026-11-11 by `DATA_SOURCE=local npm run eval -- --repeat 2`. The live run used `gpt-5-mini`, `text-embedding-3-small` and the `gpt-5` judge. Both retrieval and behavior used the fixed labels and scenarios. No labels, thresholds or seed rows were changed to improve a score.
 
 | Retrieval | Recall@1 | Recall@5 | MRR |
 |---|---:|---:|---:|
@@ -128,9 +246,9 @@ These results came from `DATA_SOURCE=local npm run eval -- --repeat 2` in this s
 
 59 of 60 scenario runs passed (98.33%). Empirical pass^2 was 0.9667. There were 0 money failures.
 
-Hybrid recall@5 exceeded the required 0.90. The report preserves the retrieval miss. In scenario A26, one hold-policy reply deferred to the owner despite retrieving the current policy. That failed repetition remains in the report. Passing the suite does not establish accuracy outside these cases.
+Hybrid recall@5 exceeded the required 0.90. The report preserves the retrieval miss and the failed A26 repetition. Passing the suite does not establish accuracy outside these cases.
 
-The offline comparison came from `DATA_SOURCE=local npm run eval -- --offline --repeat 2`. It used the deterministic adapter and fake embeddings:
+The offline comparison is preserved in [offline/full.json](evals/reports/offline/full.json), from `DATA_SOURCE=local npm run eval -- --offline --repeat 2`. It used the deterministic adapter and fake embeddings:
 
 | Retrieval | Recall@1 | Recall@5 | MRR |
 |---|---:|---:|---:|
@@ -145,10 +263,34 @@ Offline results do not establish live model accuracy. The live run exercised emb
 
 See the [live report](evals/reports/live/full.md), [live JSON](evals/reports/live/full.json), [offline report](evals/reports/offline/full.md) and [offline JSON](evals/reports/offline/full.json). The latest command also writes `evals/reports/latest.md` and JSON. `eval:retrieval` and `eval:agent` run the parts separately.
 
+#### How grading works
+
+[scenarioSchema and gradeCode](evals/grading.ts) define caller, time, turns and expectations. The real [A26 scenario](evals/scenarios/A26.json) asks whether an unpaid reservation lasts seven days and expects search to return K07. Code checks routing, tools, privacy and quoted amounts, then the harness recomputes facts from source rows. The live judge grades the transcript afterward. It cannot erase a code failure. See [the full example and grading order](docs/evals.md#scenario-format-and-grading).
+
+The full-suite gates are hybrid recall@5 at least 0.90, scenario pass rate at least 0.90 and zero money failures. Both full reports carry test-set SHA256 `bb84b5d64b6994b80ed80a4a6d6e683ab80a54f0d44bd24cddb63163716c2e11`. It hashes raw retrieval labels plus sorted scenario texts, not code or prompts. Pass^k is the fraction of scenario ids passing every repetition. From live/full.json, 59/60 repetitions pass but only 29/30 ids pass both, giving pass^2 = 0.9667. Offline uses direct tool dispatch and fake embeddings; live uses the model loop and judge.
+
+#### Reading the numbers
+
+With 40 questions, a complete change on one question moves mean recall by `1 / 40 = 0.025`. Questions with multiple relevant ids get fractional credit, so smaller changes are possible. [run.ts](evals/run.ts) averages the fraction of relevant source ids found per query. It deduplicates heading chunks before grading.
+
+Hybrid does not beat vector on this set. They tie on recall@1 and MRR, while vector recall@5 is 1.0000 against hybrid's 0.9875 in live/full.json. Hybrid stays because rank fusion is a small, inspectable way to combine literal terms and semantic matching. That is a design choice, not a measured gain. See [score interpretation](docs/evals.md#reading-retrieval-scores).
+
+#### What happened in A26
+
+The original local log matched the failed A26 repetition by exact turn timing and tool trace. It records `OutputGuardrailTripwireTriggered` after search returned current K07. The phone loop then emitted the owner-confirmation fallback. This was a reply check failure, not retrieval of the superseded rule.
+
+The blocked draft was not logged, so its exact trigger wording is unknown. A read-only diagnostic shows that an answer containing both “seven days” and “supplier price” can fail `allowedMoney`: price activates money context and the spelled number is rejected. That is a possible false positive, not recovered model output. A future fix should distinguish durations from money and record the rejected draft safely. This pass leaves the guardrail unchanged. See [the evidence and diagnostic strings](docs/evals.md#a26-investigation).
+
+#### Speed and tokens
+
+Computed from [live/full.json](evals/reports/live/full.json), flattening transcript response.ms gives 66 turns: median 3.863 s, p95 5.905 s and max 6.420 s. The median uses the middle pair; p95 uses nearest rank; milliseconds are divided by 1000 and rounded to 3 decimals. These are text-path times on gpt-5-mini with low reasoning effort. They include deterministic responses and exclude judging. They are not voice latency.
+
+Summing input and output for each of the report's 60 scenario repetitions gives median 2113.5 tokens, p95 4118 and max 4364. Judge tokens are separate. Grouping transcript toolCalls by name gives observed handler times, including nested work. [Evals](docs/evals.md#speed-and-tokens) includes the per-scenario token table, every tool's median, p95 and max, and the calculation script. No dollar cost or audio timing is inferred.
+
 ### Known limits
 
 - Live OpenAI checks passed on local synthetic data. Google Sheets, Stripe, Twilio and ElevenLabs checks still need their credentials. See [verification](docs/verification.md) for the exact commands and skipped checks.
-- A clean clone passed install, typecheck, lint, tests and build on Node.js 22. CI and Vercel deployment were not triggered.
+- A clean clone passed install, typecheck, lint, tests and build on Node.js 22. The recorded verification did not include remote CI or Vercel deployment.
 - Sheets re-reads detect edits but cannot make the final read and write atomic. Local writes are serialized inside one process. Use a single billing worker until billing state and the outbox have durable transactions.
 - Supplier pages are fixtures. Captured prices expire. The email offer parser requires explicit headers. Approved negotiations require an owner to update the pricing rule before invoicing.
 - The ElevenLabs adapter follows its [register-call documentation](https://elevenlabs.io/docs/eleven-agents/api-reference/integrations/twilio/register-call), but has not been tested against a live account. The hosted voice agent still needs its prompts, tools, transfer behavior and output checks configured. Local text guardrails cannot intercept hosted audio.
