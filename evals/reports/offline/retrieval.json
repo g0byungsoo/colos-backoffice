@@ -1,0 +1,113 @@
+{
+  "generated_at": "2026-11-11T10:17:45.027Z",
+  "mode": "offline deterministic adapter and fake embeddings",
+  "live_judge": false,
+  "selection": "retrieval",
+  "repeat": 1,
+  "testSetHash": "bb84b5d64b6994b80ed80a4a6d6e683ab80a54f0d44bd24cddb63163716c2e11",
+  "thresholds": {
+    "hybridRecall5": 0.9,
+    "scenarioPassRate": 0.9,
+    "moneyFailures": 0
+  },
+  "passed": true,
+  "passRate": null,
+  "passN": null,
+  "moneyFailureCount": 0,
+  "retrievalTokens": 0,
+  "token_usage_scope": "Scenario tokens sum API-reported usage for completed turns, including intent and phone SDK runs, nested search embeddings, search reranking and price review. Judge tokens are separate. retrievalTokens covers the standalone retrieval embedder only; standalone retrieval reranker usage is not recorded. Calls that fail before returning usage cannot be counted.",
+  "durationMs": 102.33312500000011,
+  "retrieval": [
+    {
+      "mode": "bm25",
+      "recall1": 0.925,
+      "recall5": 0.9875,
+      "mrr": 0.975,
+      "ms": 4.753999999999905,
+      "status": "measured",
+      "failures": [
+        {
+          "id": "R03",
+          "query": "What does a driver need at the gate to pick up a box?",
+          "relevant_ids": [
+            "K02",
+            "K12"
+          ],
+          "filters": {},
+          "retrieved_ids": [
+            "K02",
+            "K03",
+            "K05",
+            "K10",
+            "K01"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "vector",
+      "recall1": 0.8625,
+      "recall5": 0.9875,
+      "mrr": 0.9333333333333332,
+      "ms": 34.29570899999999,
+      "status": "measured",
+      "failures": [
+        {
+          "id": "R03",
+          "query": "What does a driver need at the gate to pick up a box?",
+          "relevant_ids": [
+            "K02",
+            "K12"
+          ],
+          "filters": {},
+          "retrieved_ids": [
+            "K03",
+            "K02",
+            "K05",
+            "K10",
+            "K01"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "hybrid",
+      "recall1": 0.9,
+      "recall5": 0.9875,
+      "mrr": 0.9625,
+      "ms": 34.20554200000015,
+      "status": "measured",
+      "failures": [
+        {
+          "id": "R03",
+          "query": "What does a driver need at the gate to pick up a box?",
+          "relevant_ids": [
+            "K02",
+            "K12"
+          ],
+          "filters": {},
+          "retrieved_ids": [
+            "K02",
+            "K03",
+            "K05",
+            "K10",
+            "K01"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "hybrid with LLM rerank",
+      "recall1": null,
+      "recall5": null,
+      "mrr": null,
+      "ms": 0.0038749999998799467,
+      "status": "not run: no live LLM in offline mode",
+      "failures": []
+    }
+  ],
+  "categories": [],
+  "scenarios": [],
+  "cost": null,
+  "cost_note": "Not calculated. Token usage is recorded; no price table was fetched for this run."
+}

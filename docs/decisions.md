@@ -2,11 +2,11 @@
 
 ## Tools for facts, retrieval for text
 
-Decision: Tools read prices, stock, pickup status and accounts from the data source. Retrieval searches policies and customer notes. A price may appear in a reply only if a pricing tool returned it during that conversation.
+Decision: Tools read prices, stock, pickup status and accounts from the data source. Retrieval searches policies and customer notes. A price may appear in a reply only if a pricing tool returned it during that conversation. General stock and price questions do not need account verification.
 
 Why: A document can explain a release number. It cannot tell us whether a particular order is ready today.
 
-Cost: Every factual answer needs a validated tool path. The guardrail checks money in the final reply, but a live voice platform also needs equivalent output controls.
+Cost: Every factual answer needs a validated tool path. The guardrail checks explicit currency and ambiguous bare prices in the final reply. It may refuse harmless wording. A live voice platform also needs equivalent output controls.
 
 ## Local hybrid search
 
@@ -34,11 +34,11 @@ Cost: Pricing rules need explicit maintenance. The agreed price on an order is h
 
 ## Sheets as the source of truth
 
-Decision: Keep Sheets as the shared record. Validate every row. Batch reads, cache within a request, back off on rate limits, and re-read a row before changing it. Supplier price observations are append-only.
+Decision: Keep Sheets as the shared record. Validate every row. Batch reads, cache within a request or conversation turn, back off on rate limits, and re-read a row before changing it. Supplier price observations are append-only.
 
 Why: This preserves the original workflow and makes the rebuild easy to inspect. Local mode reads the same synthetic CSVs and stores changes separately.
 
-Cost: Sheets has no transaction or conditional row update. A human can still edit between the final read and write. Local files also have no lock shared across processes. Move invoice approval, billing state, idempotency records and the outbox to Postgres first. Move orders and inventory next. Keep Sheets as an editable view only after conflict handling is defined.
+Cost: Sheets has no transaction or conditional row update. A human can still edit between the final read and write. Local writes share a queue inside one process. They have no lock shared across processes. Move invoice approval, billing state, idempotency records and the outbox to Postgres first. Move orders and inventory next. Keep Sheets as an editable view only after conflict handling is defined.
 
 ## Supplier snapshots
 
@@ -46,19 +46,19 @@ Decision: Parse the supplied HTML fixtures with Cheerio. Keep their captured obs
 
 Why: A fixture should never look like a fresh supplier observation merely because a job ran today. Invoice previews must refuse a price when the weekly update has passed and refresh cannot provide a current observation.
 
-Cost: These fixtures expire. A deployment needs actual supplier fetchers and current source pages. The model review and parser do not establish that a supplier will honor a price.
+Cost: These fixtures expire. A deployment needs actual supplier fetchers and current source pages. The model review and parser do not establish that a supplier will honor a price. If an append fails partway through, JobRuns records the successful writes and the failure. Sheets cannot roll the batch back.
 
 ## Explicit email offers
 
-Decision: Negotiation emails include an Order header and either Offer-Cents or an Offer dollar amount. Code parses the amount. The model writes the draft inside the resulting decision.
+Decision: Negotiation emails include an Order header and either Offer-Cents or an Offer dollar amount. Code parses the amount. The model chooses from structured draft sentences allowed for the resulting decision. Code supplies the decision sentence. A tool action result overrides the phone draft on both success and failure.
 
 Why: This keeps ambiguous currency extraction outside the money path while showing the approval workflow.
 
-Cost: Free-form emails need an operator or a separate extraction and confirmation step. The Outbox holds drafts. This rebuild does not connect an email sender.
+Cost: Drafts have limited phrasing. Free-form emails need an operator or a separate extraction and confirmation step. The Outbox holds drafts. This rebuild does not connect an email sender.
 
 ## Call identity and messages
 
-Decision: A saved customer phone identifies an account. An unknown caller must supply a matching order number and company name. Depot and supplier callers receive general factual service. An existing order problem is handed off even when it appears after the initial routing decision.
+Decision: A saved customer phone identifies an account. An unknown caller must supply a matching order number and company name. Depot and supplier callers receive general factual service. An existing order problem is handed off even when it appears after the initial routing decision. Handoff persists across HTTP tool requests and disables further account tools.
 
 Why: Account lookups and note retrieval need an identity set by code. A model must not choose which customer's private notes it can search.
 
@@ -66,7 +66,7 @@ Cost: Caller ID and knowledge of an order are weak authentication. A production 
 
 ## Optional integrations and deployment
 
-Decision: Missing optional credentials select an explicit dry run. Stripe accepts test keys only. Wire invoices use a synthetic workbook template and do not contain bank details. Twilio and ElevenLabs use separate interfaces from the text agent.
+Decision: Missing optional credentials select an explicit dry run. Stripe accepts test keys only. Wire invoices use a synthetic workbook template and do not contain bank details. Twilio and ElevenLabs use separate interfaces from the text agent. An unsigned dry-run webhook does not read caller accounts. Tools require a shared secret and an expiring call token bound to a signed Twilio request.
 
 Why: The core can be reviewed without telephony or payment accounts. The text agent, CLI and server reuse tool code.
 
@@ -74,8 +74,24 @@ Cost: Generated files and queued messages are not proof of delivery. Live webhoo
 
 ## Evaluation evidence
 
-Decision: Keep retrieval labels, scenario expectations, seed data and thresholds fixed while repairing code. Code grades tool use, isolation and money before the optional model judge. Reports identify offline runs and skipped model grading.
+Decision: Keep retrieval labels, scenario expectations, seed data and thresholds fixed while repairing code. Code grades tool use, isolation and money before the optional model judge. Reports identify offline runs and skipped model grading. Offline and live reports have separate archive paths so a local run cannot erase the live evidence.
 
 Why: A passing fake adapter does not prove the chosen model behaves correctly. Recorded transcripts and source ids help distinguish search failures from reply failures.
 
 Cost: Live model evaluation needs an API key and incurs usage. The report records measured tokens and elapsed time. There is no guessed dollar cost or claimed voice latency.
+
+## Invoice retries
+
+Decision: Save the Stripe invoice id before adding items or sending. Check existing items and totals on retry. Queue the outbox message before marking an invoice sent. Approval binds to the reviewed pricing facts.
+
+Why: A partial failure must not create another invoice or leave a sent record without its queued message.
+
+Cost: These checks cannot create a transaction across Sheets and Stripe. Use a single billing worker. A production service needs a durable job queue and reconciliation.
+
+## Model access and local checks
+
+Decision: Use the models that the configured project could access and that passed the fixed evals. Keep a deterministic adapter and fake embedder for offline checks. Read installed SDK types before using an API.
+
+Why: Model availability depends on the project. Offline checks must work without credentials or network access.
+
+Cost: The fake adapter does not predict live model quality. Model calls and the judge remain variable. Usage records count returned tokens, not a guessed dollar charge. The report states which calls are included.

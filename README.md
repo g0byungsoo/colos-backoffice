@@ -79,9 +79,9 @@ The code below is a working reference built from the account above. All customer
 8. Run `npm run seed`, then `npm run index`. Seed creates tabs with bold, frozen headers. It refuses populated tabs unless explicitly forced.
 9. Run `npm run chat -- --from +15555550199 --at 2026-11-10T19:30:00Z`. Ask whether 20GP containers are available in D01. Tool calls and sources print as they happen. Type `/quit` to leave.
 
-For a walkthrough without accounts, set `DATA_SOURCE=local` and leave the API key unset. Run the same commands. This uses a deterministic text adapter and fake embeddings. Local writes go to `.cache/local`; the CSVs stay unchanged. Tests and evals always use isolated local data, even when a sheet is configured.
+For a walkthrough without accounts, set `DATA_SOURCE=local` and add `--offline` to the CLI commands, such as `npm run index -- --offline`. This uses a deterministic text adapter and fake embeddings even when an API key is present. Local writes go to `.cache/local`; the CSVs stay unchanged. Tests and evals always use isolated local data, even when a sheet is configured.
 
-Try saved customer `+15555550101`, customer with an open issue `+15555550102`, and depot `+15555550181`. Use `2026-11-10T19:30:00Z` for business hours and `2026-11-11T03:00:00Z` for after hours. Unknown callers can verify with order `O001` and company `Alder Wharf Works`.
+Try saved customer `+15555550101`, customer with an open issue `+15555550102`, and depot `+15555550181`. Use `2026-11-10T19:30:00Z` for business hours and `2026-11-11T03:00:00Z` for after hours. Unknown callers can verify with order `O001` and company `Alder Wharf Works`. A timestamp without an offset is interpreted in `TIMEZONE`. Timestamps with `Z` are UTC.
 
 The fixtures capture a fixed week. Price refresh preserves the captured date. After the next scheduled update, an invoice refuses the old snapshot. Use the recorded date for a repeatable review:
 
@@ -111,13 +111,26 @@ Preview applies the active discount and binds approval to the reviewed facts. Se
 | Shared configuration and local controls | `src/config`, `src/cli` |
 | Measurement added to both diagrams | `evals`, unit tests, `.logs` |
 
-`npm run dev` starts Hono. `/health` reports the last successful price run and its age. `/cron/prices` requires a bearer `CRON_SECRET`. `/tools/*` requires `x-tool-secret` and a signed call token created by the routing webhook. Missing secrets disable remote writes. When configured, Twilio signatures are checked against the incoming URL. Configure Twilio with the exact public webhook URL.
+`npm run dev` starts Hono. `/health` reports the last successful price run and its age. `/cron/prices` requires a bearer `CRON_SECRET`. `/tools/*` requires configured Twilio authentication, `x-tool-secret` and an expiring signed token bound to a recorded call. Missing secrets disable remote writes. Without a Twilio token, the voice webhook returns an inert dry run before reading an account. When configured, Twilio signatures are checked against the incoming URL. Configure Twilio with the exact public webhook URL.
 
 The Vercel entry point is `api/index.ts`. Cron runs on Monday and Tuesday in UTC. `vercel.json` includes prompts and fixtures. On Vercel, temporary files go under `/tmp/colos`. Persist logs and generated invoices elsewhere before relying on a deployment.
 
 ### Measured evals
 
-The table comes from `npm run eval -- --offline --repeat 2` in this session. It uses the fixed retrieval labels and scenario files. The report records their hash. No labels, thresholds or seed rows were changed to improve a score.
+These results came from `DATA_SOURCE=local npm run eval -- --repeat 2` in this session. The live run used `gpt-5-mini`, `text-embedding-3-small` and the `gpt-5` judge. Both retrieval and behavior used the fixed labels and scenarios. No labels, thresholds or seed rows were changed to improve a score.
+
+| Retrieval | Recall@1 | Recall@5 | MRR |
+|---|---:|---:|---:|
+| bm25 | 0.9250 | 0.9875 | 0.9750 |
+| vector | 0.9500 | 1.0000 | 0.9875 |
+| hybrid | 0.9500 | 0.9875 | 0.9875 |
+| hybrid with LLM rerank | 0.9750 | 1.0000 | 1.0000 |
+
+59 of 60 scenario runs passed (98.33%). Empirical pass^2 was 0.9667. There were 0 money failures.
+
+Hybrid recall@5 exceeded the required 0.90. The report preserves the retrieval miss. In scenario A26, one hold-policy reply deferred to the owner despite retrieving the current policy. That failed repetition remains in the report. Passing the suite does not establish accuracy outside these cases.
+
+The offline comparison came from `DATA_SOURCE=local npm run eval -- --offline --repeat 2`. It used the deterministic adapter and fake embeddings:
 
 | Retrieval | Recall@1 | Recall@5 | MRR |
 |---|---:|---:|---:|
@@ -126,21 +139,23 @@ The table comes from `npm run eval -- --offline --repeat 2` in this session. It 
 | hybrid | 0.9000 | 0.9875 | 0.9625 |
 | hybrid with LLM rerank | not run | not run | not run |
 
-All 60 scenario runs passed across 30 scenarios repeated twice. Empirical pass^2 was 1.0000. There were no money failures. Hybrid recall@5 exceeded the required 0.90. The report keeps the retrieval miss visible rather than hiding it behind the aggregate score.
+60 of 60 scenario runs passed (100.00%). Empirical pass^2 was 1.0000. There were 0 money failures.
 
-These are offline adapter results. They do not establish live model accuracy. OpenAI embeddings, the model judge and the model reranker were not run. Cost was not calculated. Actual elapsed times and token fields are in [the JSON report](evals/reports/latest.json). Per-category results and misses are in [the readable report](evals/reports/latest.md). Run `npm run eval` with an API key to measure the live path. `eval:retrieval` and `eval:agent` run the parts separately.
+Offline results do not establish live model accuracy. The live run exercised embeddings, model calls, the judge and the reranker. Cost and voice latency were not calculated. Actual scenario times and returned token usage are in the JSON reports. The reports state the limits of token accounting.
+
+See the [live report](evals/reports/live/full.md), [live JSON](evals/reports/live/full.json), [offline report](evals/reports/offline/full.md) and [offline JSON](evals/reports/offline/full.json). The latest command also writes `evals/reports/latest.md` and JSON. `eval:retrieval` and `eval:agent` run the parts separately.
 
 ### Known limits
 
-- Live OpenAI, Google Sheets, Stripe, Twilio and ElevenLabs checks were not run because credentials were absent. Local doctor, seed, index, caller routes, negotiation and invoice commands were exercised. See [verification](docs/verification.md) for commands and results.
-- The available runtime reported Node.js 26.3.0, including the installed path named node@22. Local checks passed there. CI requests Node.js 22, but that CI run has not been observed.
-- Sheets re-reads detect edits but cannot make the final read and write atomic. Local files also need a single writer. Billing needs durable transactions before production use.
-- Supplier pages are fixtures, not live scrapers. Captured prices expire. The email offer parser requires explicit headers. Approved negotiations require an owner to update the pricing rule before invoicing.
+- Live OpenAI checks passed on local synthetic data. Google Sheets, Stripe, Twilio and ElevenLabs checks still need their credentials. See [verification](docs/verification.md) for the exact commands and skipped checks.
+- A clean clone passed install, typecheck, lint, tests and build on Node.js 22. CI and Vercel deployment were not triggered.
+- Sheets re-reads detect edits but cannot make the final read and write atomic. Local writes are serialized inside one process. Use a single billing worker until billing state and the outbox have durable transactions.
+- Supplier pages are fixtures. Captured prices expire. The email offer parser requires explicit headers. Approved negotiations require an owner to update the pricing rule before invoicing.
 - The ElevenLabs adapter follows its [register-call documentation](https://elevenlabs.io/docs/eleven-agents/api-reference/integrations/twilio/register-call), but has not been tested against a live account. The hosted voice agent still needs its prompts, tools, transfer behavior and output checks configured. Local text guardrails cannot intercept hosted audio.
-- Phone handoff records a callback request. Initial known-customer routing can dial the owner with a whisper. Mid-call voice transfers need the hosted agent's transfer configuration.
-- Currency guardrails use conservative text checks. They are a second check after tool access, not proof that arbitrary model language is safe. The fixed evals and live review remain necessary.
+- Phone handoff records a callback request and blocks further account tools. Initial known-customer routing can dial the owner with a whisper. Mid-call voice transfers need the hosted agent's transfer configuration.
+- Currency guardrails use conservative text checks. They can refuse ambiguous wording. They supplement tool access and fixed evals; they do not prove arbitrary model language is safe.
 - The wire template is synthetic, contains no bank details and labels its amounts in cents. Sending it prepares a file and queues a message. It does not deliver email. Vercel files are temporary.
-- The default text model is `gpt-5.4-mini`, based on the [official model page](https://developers.openai.com/api/docs/models/gpt-5.4-mini). Model access and behavior still need a live check. Configuration can select another model after evals.
+- The tested defaults are `gpt-5-mini` for agent calls, `gpt-5` for grading and `text-embedding-3-small` for embeddings. Run evals before selecting another model.
 
 See [decisions](docs/decisions.md) for scope choices and their costs.
 
@@ -167,8 +182,11 @@ ElevenLabs agent platform, Twilio, OpenAI API, Node.js on Vercel, Google Sheets 
 ├── fixtures/         # Supplier pages, emails and wire template
 ├── prompts/          # Shared system prompts
 ├── evals/            # Fixed tests and measured reports
+├── test/             # Network blocking and credential isolation
 ├── docs/             # Decisions, verification and original diagrams
 ├── .github/workflows/
+├── .env.example
+├── package.json
 ├── AGENTS.md
 ├── README.md
 └── LICENSE
