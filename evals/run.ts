@@ -542,7 +542,7 @@ try {
     moneyFailureCount,
     retrievalTokens,
     token_usage_scope:
-      "Scenario tokens cover the intent and phone agent SDK runs. Retrieval embedding tokens are reported separately. Reranker tokens and embeddings inside phone tools are not included.",
+      "Scenario tokens sum API-reported usage for completed turns, including intent and phone SDK runs, nested search embeddings, search reranking and price review. Judge tokens are separate. retrievalTokens covers the standalone retrieval embedder only; standalone retrieval reranker usage is not recorded. Calls that fail before returning usage cannot be counted.",
     durationMs: performance.now() - started,
     retrieval,
     categories,
@@ -577,7 +577,7 @@ try {
       (c) => `| ${c.category} | ${c.passed} | ${c.total} | ${number(c.rate)} |`,
     ),
     "",
-    "Cost was not calculated. Token usage and elapsed time per scenario are in the JSON report. Scenario tokens include intent, phone, search embeddings, search reranking and nested price review calls. Judge tokens are recorded separately.",
+    "Cost was not calculated. Token usage and elapsed time per scenario are in the JSON report. Scenario tokens sum API-reported usage for completed turns, including intent, phone, nested search embeddings, search reranking and price review. Judge tokens are separate. The standalone retrieval token count covers embeddings only; standalone retrieval reranker usage is not recorded. Calls that fail before returning usage cannot be counted.",
     "",
     "## Failures",
     "",
