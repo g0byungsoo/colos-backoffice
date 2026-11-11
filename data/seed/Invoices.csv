@@ -1,0 +1,1 @@
+invoice_id,order_id,version,list_cents,discount_cents,final_cents,cost_cents,price_observed_at,method,status,stripe_invoice_id,idempotency_key,approved_at

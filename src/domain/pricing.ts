@@ -87,7 +87,7 @@ export function isPriceStale(input: {
 }): boolean {
   const observed = new Date(input.observedAt);
   if (!Number.isFinite(observed.getTime()) || observed > input.at) return true;
-  // Scan UTC minutes so timezone offsets and daylight saving changes are honored.
+  // Compare local calendar dates so weekly schedules honor daylight saving time.
   // More than a week old always crosses at least one weekly supplier update.
   if (input.at.getTime() - observed.getTime() > 8 * 86400000) return true;
   const end = localParts(input.at, input.timezone);

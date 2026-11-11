@@ -1,0 +1,151 @@
+note_id,customer_id,author,created_at,text
+N001-1,C001,Synthetic operator,2026-10-11T17:00:00Z,"Alder Wharf Works prefers email before a pickup appointment. Bramble Ridge Supply was mentioned as a neighboring tenant, not an account contact."
+N001-2,C001,Synthetic operator,2026-10-12T17:00:00Z,Alder Wharf Works uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N001-3,C001,Synthetic operator,2026-10-13T17:00:00Z,Alder Wharf Works asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N001-4,C001,Synthetic operator,2026-10-14T17:00:00Z,Alder Wharf Works wants paperwork addressed to its own company. Do not copy Bramble Ridge Supply on invoices even though they share a site.
+N001-5,C001,Synthetic operator,2026-10-15T17:00:00Z,Alder Wharf Works requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N002-1,C002,Synthetic operator,2026-10-11T17:00:00Z,"Bramble Ridge Supply prefers email before a pickup appointment. Cedar Lantern Goods was mentioned as a neighboring tenant, not an account contact."
+N002-2,C002,Synthetic operator,2026-10-12T17:00:00Z,Bramble Ridge Supply uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N002-3,C002,Synthetic operator,2026-10-13T17:00:00Z,Bramble Ridge Supply asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N002-4,C002,Synthetic operator,2026-10-14T17:00:00Z,Bramble Ridge Supply wants paperwork addressed to its own company. Do not copy Cedar Lantern Goods on invoices even though they share a site.
+N002-5,C002,Synthetic operator,2026-10-15T17:00:00Z,Bramble Ridge Supply requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N003-1,C003,Synthetic operator,2026-10-11T17:00:00Z,"Cedar Lantern Goods prefers email before a pickup appointment. Dune Orchard Storage was mentioned as a neighboring tenant, not an account contact."
+N003-2,C003,Synthetic operator,2026-10-12T17:00:00Z,Cedar Lantern Goods uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N003-3,C003,Synthetic operator,2026-10-13T17:00:00Z,Cedar Lantern Goods asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N003-4,C003,Synthetic operator,2026-10-14T17:00:00Z,Cedar Lantern Goods wants paperwork addressed to its own company. Do not copy Dune Orchard Storage on invoices even though they share a site.
+N003-5,C003,Synthetic operator,2026-10-15T17:00:00Z,Cedar Lantern Goods requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N004-1,C004,Synthetic operator,2026-10-11T17:00:00Z,"Dune Orchard Storage prefers email before a pickup appointment. Elm Harbor Fabrication was mentioned as a neighboring tenant, not an account contact."
+N004-2,C004,Synthetic operator,2026-10-12T17:00:00Z,Dune Orchard Storage uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N004-3,C004,Synthetic operator,2026-10-13T17:00:00Z,Dune Orchard Storage asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N004-4,C004,Synthetic operator,2026-10-14T17:00:00Z,Dune Orchard Storage wants paperwork addressed to its own company. Do not copy Elm Harbor Fabrication on invoices even though they share a site.
+N004-5,C004,Synthetic operator,2026-10-15T17:00:00Z,Dune Orchard Storage requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N005-1,C005,Synthetic operator,2026-10-11T17:00:00Z,"Elm Harbor Fabrication prefers email before a pickup appointment. Fern Quarry Trading was mentioned as a neighboring tenant, not an account contact."
+N005-2,C005,Synthetic operator,2026-10-12T17:00:00Z,Elm Harbor Fabrication uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N005-3,C005,Synthetic operator,2026-10-13T17:00:00Z,Elm Harbor Fabrication asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N005-4,C005,Synthetic operator,2026-10-14T17:00:00Z,Elm Harbor Fabrication wants paperwork addressed to its own company. Do not copy Fern Quarry Trading on invoices even though they share a site.
+N005-5,C005,Synthetic operator,2026-10-15T17:00:00Z,Elm Harbor Fabrication requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N006-1,C006,Synthetic operator,2026-10-11T17:00:00Z,"Fern Quarry Trading prefers email before a pickup appointment. Grove Meadow Builders was mentioned as a neighboring tenant, not an account contact."
+N006-2,C006,Synthetic operator,2026-10-12T17:00:00Z,Fern Quarry Trading uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N006-3,C006,Synthetic operator,2026-10-13T17:00:00Z,Fern Quarry Trading asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N006-4,C006,Synthetic operator,2026-10-14T17:00:00Z,Fern Quarry Trading wants paperwork addressed to its own company. Do not copy Grove Meadow Builders on invoices even though they share a site.
+N006-5,C006,Synthetic operator,2026-10-15T17:00:00Z,Fern Quarry Trading requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N007-1,C007,Synthetic operator,2026-10-11T17:00:00Z,"Grove Meadow Builders prefers email before a pickup appointment. Hazel Copper Depot was mentioned as a neighboring tenant, not an account contact."
+N007-2,C007,Synthetic operator,2026-10-12T17:00:00Z,Grove Meadow Builders uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N007-3,C007,Synthetic operator,2026-10-13T17:00:00Z,Grove Meadow Builders asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N007-4,C007,Synthetic operator,2026-10-14T17:00:00Z,Grove Meadow Builders wants paperwork addressed to its own company. Do not copy Hazel Copper Depot on invoices even though they share a site.
+N007-5,C007,Synthetic operator,2026-10-15T17:00:00Z,Grove Meadow Builders requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N008-1,C008,Synthetic operator,2026-10-11T17:00:00Z,"Hazel Copper Depot prefers email before a pickup appointment. Ivy Summit Farms was mentioned as a neighboring tenant, not an account contact."
+N008-2,C008,Synthetic operator,2026-10-12T17:00:00Z,Hazel Copper Depot uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N008-3,C008,Synthetic operator,2026-10-13T17:00:00Z,Hazel Copper Depot asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N008-4,C008,Synthetic operator,2026-10-14T17:00:00Z,Hazel Copper Depot wants paperwork addressed to its own company. Do not copy Ivy Summit Farms on invoices even though they share a site.
+N008-5,C008,Synthetic operator,2026-10-15T17:00:00Z,Hazel Copper Depot requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N009-1,C009,Synthetic operator,2026-10-11T17:00:00Z,"Ivy Summit Farms prefers email before a pickup appointment. Juniper Willow Rentals was mentioned as a neighboring tenant, not an account contact."
+N009-2,C009,Synthetic operator,2026-10-12T17:00:00Z,Ivy Summit Farms uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N009-3,C009,Synthetic operator,2026-10-13T17:00:00Z,Ivy Summit Farms asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N009-4,C009,Synthetic operator,2026-10-14T17:00:00Z,Ivy Summit Farms wants paperwork addressed to its own company. Do not copy Juniper Willow Rentals on invoices even though they share a site.
+N009-5,C009,Synthetic operator,2026-10-15T17:00:00Z,Ivy Summit Farms requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N010-1,C010,Synthetic operator,2026-10-11T17:00:00Z,"Juniper Willow Rentals prefers email before a pickup appointment. Kestrel Stone Supply was mentioned as a neighboring tenant, not an account contact."
+N010-2,C010,Synthetic operator,2026-10-12T17:00:00Z,Juniper Willow Rentals uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N010-3,C010,Synthetic operator,2026-10-13T17:00:00Z,Juniper Willow Rentals asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N010-4,C010,Synthetic operator,2026-10-14T17:00:00Z,Juniper Willow Rentals wants paperwork addressed to its own company. Do not copy Kestrel Stone Supply on invoices even though they share a site.
+N010-5,C010,Synthetic operator,2026-10-15T17:00:00Z,Juniper Willow Rentals requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N011-1,C011,Synthetic operator,2026-10-11T17:00:00Z,"Kestrel Stone Supply prefers email before a pickup appointment. Larch Valley Goods was mentioned as a neighboring tenant, not an account contact."
+N011-2,C011,Synthetic operator,2026-10-12T17:00:00Z,Kestrel Stone Supply uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N011-3,C011,Synthetic operator,2026-10-13T17:00:00Z,Kestrel Stone Supply asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N011-4,C011,Synthetic operator,2026-10-14T17:00:00Z,Kestrel Stone Supply wants paperwork addressed to its own company. Do not copy Larch Valley Goods on invoices even though they share a site.
+N011-5,C011,Synthetic operator,2026-10-15T17:00:00Z,Kestrel Stone Supply requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N012-1,C012,Synthetic operator,2026-10-11T17:00:00Z,"Larch Valley Goods prefers email before a pickup appointment. Maple Beacon Works was mentioned as a neighboring tenant, not an account contact."
+N012-2,C012,Synthetic operator,2026-10-12T17:00:00Z,Larch Valley Goods uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N012-3,C012,Synthetic operator,2026-10-13T17:00:00Z,Larch Valley Goods asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N012-4,C012,Synthetic operator,2026-10-14T17:00:00Z,Larch Valley Goods wants paperwork addressed to its own company. Do not copy Maple Beacon Works on invoices even though they share a site.
+N012-5,C012,Synthetic operator,2026-10-15T17:00:00Z,Larch Valley Goods requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N013-1,C013,Synthetic operator,2026-10-11T17:00:00Z,"Maple Beacon Works prefers email before a pickup appointment. Nettle Brook Trading was mentioned as a neighboring tenant, not an account contact."
+N013-2,C013,Synthetic operator,2026-10-12T17:00:00Z,Maple Beacon Works uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N013-3,C013,Synthetic operator,2026-10-13T17:00:00Z,Maple Beacon Works asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N013-4,C013,Synthetic operator,2026-10-14T17:00:00Z,Maple Beacon Works wants paperwork addressed to its own company. Do not copy Nettle Brook Trading on invoices even though they share a site.
+N013-5,C013,Synthetic operator,2026-10-15T17:00:00Z,Maple Beacon Works requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N014-1,C014,Synthetic operator,2026-10-11T17:00:00Z,"Nettle Brook Trading prefers email before a pickup appointment. Oak Finch Fabrication was mentioned as a neighboring tenant, not an account contact."
+N014-2,C014,Synthetic operator,2026-10-12T17:00:00Z,Nettle Brook Trading uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N014-3,C014,Synthetic operator,2026-10-13T17:00:00Z,Nettle Brook Trading asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N014-4,C014,Synthetic operator,2026-10-14T17:00:00Z,Nettle Brook Trading wants paperwork addressed to its own company. Do not copy Oak Finch Fabrication on invoices even though they share a site.
+N014-5,C014,Synthetic operator,2026-10-15T17:00:00Z,Nettle Brook Trading requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N015-1,C015,Synthetic operator,2026-10-11T17:00:00Z,"Oak Finch Fabrication prefers email before a pickup appointment. Pine Moss Storage was mentioned as a neighboring tenant, not an account contact."
+N015-2,C015,Synthetic operator,2026-10-12T17:00:00Z,Oak Finch Fabrication uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N015-3,C015,Synthetic operator,2026-10-13T17:00:00Z,Oak Finch Fabrication asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N015-4,C015,Synthetic operator,2026-10-14T17:00:00Z,Oak Finch Fabrication wants paperwork addressed to its own company. Do not copy Pine Moss Storage on invoices even though they share a site.
+N015-5,C015,Synthetic operator,2026-10-15T17:00:00Z,Oak Finch Fabrication requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N016-1,C016,Synthetic operator,2026-10-11T17:00:00Z,"Pine Moss Storage prefers email before a pickup appointment. Quartz Clover Farms was mentioned as a neighboring tenant, not an account contact."
+N016-2,C016,Synthetic operator,2026-10-12T17:00:00Z,Pine Moss Storage uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N016-3,C016,Synthetic operator,2026-10-13T17:00:00Z,Pine Moss Storage asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N016-4,C016,Synthetic operator,2026-10-14T17:00:00Z,Pine Moss Storage wants paperwork addressed to its own company. Do not copy Quartz Clover Farms on invoices even though they share a site.
+N016-5,C016,Synthetic operator,2026-10-15T17:00:00Z,Pine Moss Storage requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N017-1,C017,Synthetic operator,2026-10-11T17:00:00Z,"Quartz Clover Farms prefers email before a pickup appointment. Reed Birch Builders was mentioned as a neighboring tenant, not an account contact."
+N017-2,C017,Synthetic operator,2026-10-12T17:00:00Z,Quartz Clover Farms uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N017-3,C017,Synthetic operator,2026-10-13T17:00:00Z,Quartz Clover Farms asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N017-4,C017,Synthetic operator,2026-10-14T17:00:00Z,Quartz Clover Farms wants paperwork addressed to its own company. Do not copy Reed Birch Builders on invoices even though they share a site.
+N017-5,C017,Synthetic operator,2026-10-15T17:00:00Z,Quartz Clover Farms requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N018-1,C018,Synthetic operator,2026-10-11T17:00:00Z,"Reed Birch Builders prefers email before a pickup appointment. Sage Drift Rentals was mentioned as a neighboring tenant, not an account contact."
+N018-2,C018,Synthetic operator,2026-10-12T17:00:00Z,Reed Birch Builders uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N018-3,C018,Synthetic operator,2026-10-13T17:00:00Z,Reed Birch Builders asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N018-4,C018,Synthetic operator,2026-10-14T17:00:00Z,Reed Birch Builders wants paperwork addressed to its own company. Do not copy Sage Drift Rentals on invoices even though they share a site.
+N018-5,C018,Synthetic operator,2026-10-15T17:00:00Z,Reed Birch Builders requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N019-1,C019,Synthetic operator,2026-10-11T17:00:00Z,"Sage Drift Rentals prefers email before a pickup appointment. Thistle Lake Goods was mentioned as a neighboring tenant, not an account contact."
+N019-2,C019,Synthetic operator,2026-10-12T17:00:00Z,Sage Drift Rentals uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N019-3,C019,Synthetic operator,2026-10-13T17:00:00Z,Sage Drift Rentals asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N019-4,C019,Synthetic operator,2026-10-14T17:00:00Z,Sage Drift Rentals wants paperwork addressed to its own company. Do not copy Thistle Lake Goods on invoices even though they share a site.
+N019-5,C019,Synthetic operator,2026-10-15T17:00:00Z,Sage Drift Rentals requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N020-1,C020,Synthetic operator,2026-10-11T17:00:00Z,"Thistle Lake Goods prefers email before a pickup appointment. Umber Cove Supply was mentioned as a neighboring tenant, not an account contact."
+N020-2,C020,Synthetic operator,2026-10-12T17:00:00Z,Thistle Lake Goods uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N020-3,C020,Synthetic operator,2026-10-13T17:00:00Z,Thistle Lake Goods asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N020-4,C020,Synthetic operator,2026-10-14T17:00:00Z,Thistle Lake Goods wants paperwork addressed to its own company. Do not copy Umber Cove Supply on invoices even though they share a site.
+N020-5,C020,Synthetic operator,2026-10-15T17:00:00Z,Thistle Lake Goods requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N021-1,C021,Synthetic operator,2026-10-11T17:00:00Z,"Umber Cove Supply prefers email before a pickup appointment. Vale Spruce Works was mentioned as a neighboring tenant, not an account contact."
+N021-2,C021,Synthetic operator,2026-10-12T17:00:00Z,Umber Cove Supply uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N021-3,C021,Synthetic operator,2026-10-13T17:00:00Z,Umber Cove Supply asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N021-4,C021,Synthetic operator,2026-10-14T17:00:00Z,Umber Cove Supply wants paperwork addressed to its own company. Do not copy Vale Spruce Works on invoices even though they share a site.
+N021-5,C021,Synthetic operator,2026-10-15T17:00:00Z,Umber Cove Supply requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N022-1,C022,Synthetic operator,2026-10-11T17:00:00Z,"Vale Spruce Works prefers email before a pickup appointment. Willow Flint Trading was mentioned as a neighboring tenant, not an account contact."
+N022-2,C022,Synthetic operator,2026-10-12T17:00:00Z,Vale Spruce Works uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N022-3,C022,Synthetic operator,2026-10-13T17:00:00Z,Vale Spruce Works asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N022-4,C022,Synthetic operator,2026-10-14T17:00:00Z,Vale Spruce Works wants paperwork addressed to its own company. Do not copy Willow Flint Trading on invoices even though they share a site.
+N022-5,C022,Synthetic operator,2026-10-15T17:00:00Z,Vale Spruce Works requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N023-1,C023,Synthetic operator,2026-10-11T17:00:00Z,"Willow Flint Trading prefers email before a pickup appointment. Yarrow Glen Storage was mentioned as a neighboring tenant, not an account contact."
+N023-2,C023,Synthetic operator,2026-10-12T17:00:00Z,Willow Flint Trading uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N023-3,C023,Synthetic operator,2026-10-13T17:00:00Z,Willow Flint Trading asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N023-4,C023,Synthetic operator,2026-10-14T17:00:00Z,Willow Flint Trading wants paperwork addressed to its own company. Do not copy Yarrow Glen Storage on invoices even though they share a site.
+N023-5,C023,Synthetic operator,2026-10-15T17:00:00Z,Willow Flint Trading requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N024-1,C024,Synthetic operator,2026-10-11T17:00:00Z,"Yarrow Glen Storage prefers email before a pickup appointment. Zephyr Field Farms was mentioned as a neighboring tenant, not an account contact."
+N024-2,C024,Synthetic operator,2026-10-12T17:00:00Z,Yarrow Glen Storage uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N024-3,C024,Synthetic operator,2026-10-13T17:00:00Z,Yarrow Glen Storage asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N024-4,C024,Synthetic operator,2026-10-14T17:00:00Z,Yarrow Glen Storage wants paperwork addressed to its own company. Do not copy Zephyr Field Farms on invoices even though they share a site.
+N024-5,C024,Synthetic operator,2026-10-15T17:00:00Z,Yarrow Glen Storage requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N025-1,C025,Synthetic operator,2026-10-11T17:00:00Z,"Zephyr Field Farms prefers email before a pickup appointment. Acorn Reed Rentals was mentioned as a neighboring tenant, not an account contact."
+N025-2,C025,Synthetic operator,2026-10-12T17:00:00Z,Zephyr Field Farms uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N025-3,C025,Synthetic operator,2026-10-13T17:00:00Z,Zephyr Field Farms asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N025-4,C025,Synthetic operator,2026-10-14T17:00:00Z,Zephyr Field Farms wants paperwork addressed to its own company. Do not copy Acorn Reed Rentals on invoices even though they share a site.
+N025-5,C025,Synthetic operator,2026-10-15T17:00:00Z,Zephyr Field Farms requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N026-1,C026,Synthetic operator,2026-10-11T17:00:00Z,"Acorn Reed Rentals prefers email before a pickup appointment. Birch Amber Goods was mentioned as a neighboring tenant, not an account contact."
+N026-2,C026,Synthetic operator,2026-10-12T17:00:00Z,Acorn Reed Rentals uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N026-3,C026,Synthetic operator,2026-10-13T17:00:00Z,Acorn Reed Rentals asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N026-4,C026,Synthetic operator,2026-10-14T17:00:00Z,Acorn Reed Rentals wants paperwork addressed to its own company. Do not copy Birch Amber Goods on invoices even though they share a site.
+N026-5,C026,Synthetic operator,2026-10-15T17:00:00Z,Acorn Reed Rentals requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N027-1,C027,Synthetic operator,2026-10-11T17:00:00Z,"Birch Amber Goods prefers email before a pickup appointment. Cobalt Pine Supply was mentioned as a neighboring tenant, not an account contact."
+N027-2,C027,Synthetic operator,2026-10-12T17:00:00Z,Birch Amber Goods uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N027-3,C027,Synthetic operator,2026-10-13T17:00:00Z,Birch Amber Goods asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N027-4,C027,Synthetic operator,2026-10-14T17:00:00Z,Birch Amber Goods wants paperwork addressed to its own company. Do not copy Cobalt Pine Supply on invoices even though they share a site.
+N027-5,C027,Synthetic operator,2026-10-15T17:00:00Z,Birch Amber Goods requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N028-1,C028,Synthetic operator,2026-10-11T17:00:00Z,"Cobalt Pine Supply prefers email before a pickup appointment. Drift Alder Builders was mentioned as a neighboring tenant, not an account contact."
+N028-2,C028,Synthetic operator,2026-10-12T17:00:00Z,Cobalt Pine Supply uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N028-3,C028,Synthetic operator,2026-10-13T17:00:00Z,Cobalt Pine Supply asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N028-4,C028,Synthetic operator,2026-10-14T17:00:00Z,Cobalt Pine Supply wants paperwork addressed to its own company. Do not copy Drift Alder Builders on invoices even though they share a site.
+N028-5,C028,Synthetic operator,2026-10-15T17:00:00Z,Cobalt Pine Supply requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N029-1,C029,Synthetic operator,2026-10-11T17:00:00Z,"Drift Alder Builders prefers email before a pickup appointment. Echo Fern Works was mentioned as a neighboring tenant, not an account contact."
+N029-2,C029,Synthetic operator,2026-10-12T17:00:00Z,Drift Alder Builders uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N029-3,C029,Synthetic operator,2026-10-13T17:00:00Z,Drift Alder Builders asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N029-4,C029,Synthetic operator,2026-10-14T17:00:00Z,Drift Alder Builders wants paperwork addressed to its own company. Do not copy Echo Fern Works on invoices even though they share a site.
+N029-5,C029,Synthetic operator,2026-10-15T17:00:00Z,Drift Alder Builders requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.
+N030-1,C030,Synthetic operator,2026-10-11T17:00:00Z,"Echo Fern Works prefers email before a pickup appointment. Alder Wharf Works was mentioned as a neighboring tenant, not an account contact."
+N030-2,C030,Synthetic operator,2026-10-12T17:00:00Z,Echo Fern Works uses a blue flatbed truck. Driver should call the depot desk before leaving the yard. Release number still required.
+N030-3,C030,Synthetic operator,2026-10-13T17:00:00Z,Echo Fern Works asked about a weatherproof storage container. Explained wind and watertight versus cargo worthy grades; no price was quoted.
+N030-4,C030,Synthetic operator,2026-10-14T17:00:00Z,Echo Fern Works wants paperwork addressed to its own company. Do not copy Alder Wharf Works on invoices even though they share a site.
+N030-5,C030,Synthetic operator,2026-10-15T17:00:00Z,Echo Fern Works requested a callback on Friday afternoon about future stock. This note does not confirm an order or delivery date.

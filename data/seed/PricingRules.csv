@@ -1,0 +1,5 @@
+customer_id,kind,amount,starts_on,ends_on
+C001,percent,5,2026-01-01,2026-12-31
+C004,fixed,10000,2026-01-01,
+C005,percent,30,2026-01-01,
+C006,fixed,5000,2025-01-01,2025-12-31

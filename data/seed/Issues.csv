@@ -1,0 +1,4 @@
+issue_id,customer_id,order_id,kind,status,summary,opened_at
+I001,C002,O002,late_delivery,open,Delivery missed the agreed pickup date. Owner must confirm a new plan.,2026-11-09T18:00:00Z
+I002,C003,O003,invoice,open,Customer says the invoice has the wrong company name.,2026-11-09T19:00:00Z
+I003,C001,O001,other,closed,Gate directions clarified.,2026-10-15T19:00:00Z

@@ -1,0 +1,37 @@
+doc_id,title,body_markdown,status,updated_at
+K01,Payment terms,"# Payment timing
+Payment must clear before release. Wire payments are confirmed by the office. Card payment links come from the approved invoice. A receipt alone is not a release number.
+# Payment disputes
+For a wrong invoice or disputed charge, ask the owner to review the order. Do not promise a refund.",current,2026-11-01T16:00:00Z
+K02,Pickup rules and release numbers,"# Release number
+Drivers need the release number and photo identification at the depot gate. The office issues the release number after cleared payment and depot confirmation. An order number is not a release number.
+# Pickup appointment
+Book a pickup appointment before sending a truck. Bring the release number even if the driver has an invoice.",current,2026-11-01T16:00:00Z
+K03,Depot hours,"# Gate hours
+Marsh Gate, Cove Rail, Ridge Yard and Willow Port receive drivers Monday through Friday from 08:00 to 16:00 local time. Last pickup check-in is 15:30. Holiday closures require depot confirmation.",current,2026-11-01T16:00:00Z
+K04,Container grades,"# Cargo worthy
+Cargo worthy containers have a valid inspection for transport. They may have dents and surface rust.
+# Wind and watertight
+Wind and watertight containers keep weather out but do not include a cargo worthy inspection. New one-trip containers may have minor handling marks.",current,2026-11-01T16:00:00Z
+K05,Delivery access,"# Truck access
+Delivery needs firm level ground, room for the truck to turn, and clear overhead space. The office confirms access before booking. A pickup appointment is not a delivery booking.
+# Delivery delays
+Existing order delays go to the owner. The agent cannot promise a replacement arrival time.",current,2026-11-01T16:00:00Z
+K06,Damage claims,"# Damage evidence
+Photograph damage before unloading and keep the delivery paperwork. Report visible damage to the office on the day of delivery. The owner reviews the evidence before deciding a claim.
+# Claims are reviewed
+The agent cannot authorize repairs or promise compensation.",current,2026-11-01T16:00:00Z
+K07,Holds policy,"# Current hold duration
+An unpaid reservation holds stock until the end of the next business day. A hold does not lock a supplier price. Request an extension from the owner before the hold expires.",current,2026-11-01T16:00:00Z
+K08,Cancellations,"# Cancellation review
+Ask the office to cancel before arranging a truck. The owner reviews any paid order cancellation and any transport charges. The agent cannot guarantee a refund. A release number must be withdrawn by the office.",current,2026-11-01T16:00:00Z
+K09,Pickup readiness,"# Ready for pickup
+Readiness requires cleared payment, depot release, and an available appointment. Check the live pickup status tool for an actual container or order. Inventory availability alone does not mean the order is ready.",current,2026-11-01T16:00:00Z
+K10,Price validity,"# Weekly prices
+Supplier prices change on their own weekly schedules. The live pricing tool supplies current prices. A hold or an old invoice is not evidence of the current price. Discounts need owner approval unless a customer pricing rule already applies.",current,2026-11-01T16:00:00Z
+K11,Old holds policy,"# Superseded hold duration
+An unpaid reservation holds stock for seven calendar days. This old policy is superseded. Use the current holds policy for all new questions.",superseded,2026-11-01T16:00:00Z
+K12,Container sizes and documents,"# Container sizes
+Common stock includes 20GP general purpose containers and 40HC high cube containers. Ask the live inventory tool for availability by depot.
+# Collection documents
+Bring photo identification and the depot release number. A payment receipt or order number cannot replace the release number.",current,2026-11-01T16:00:00Z

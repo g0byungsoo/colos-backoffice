@@ -1,0 +1,6 @@
+supplier_id,name,update_weekday,update_time_local,source
+S01,Aster Steel Supply,1,08:00,fixtures/suppliers/S01-week2.html
+S02,Briar Container Exchange,2,08:00,fixtures/suppliers/S02-week2.html
+S03,Cobalt Box Trading,1,08:00,fixtures/suppliers/S03-week2.html
+S04,Drift Steel Supply,2,08:00,fixtures/suppliers/S04-week2.html
+S05,Evergreen Container Works,1,08:00,fixtures/suppliers/S05-week2.html

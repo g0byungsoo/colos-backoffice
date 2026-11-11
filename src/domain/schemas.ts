@@ -148,6 +148,7 @@ export const schemas = {
     summary: text,
     outcome: text,
     started_at: utc,
+    state_json: z.string().default("{}"),
   }),
   JobRuns: z.object({
     run_id: id,
