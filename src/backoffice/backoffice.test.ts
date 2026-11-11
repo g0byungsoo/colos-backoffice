@@ -183,3 +183,22 @@ describe("invoice lifecycle", () => {
     expect((await data.read("Invoices"))[0]?.status).toBe("approved");
   });
 });
+
+it("reports writes already committed before a supplier append failure", async () => {
+  const data = source();
+  const before = (await data.read("SupplierPrices")).length;
+  const append = data.append.bind(data);
+  let calls = 0;
+  data.append = async (table, row) => {
+    if (table === "SupplierPrices" && ++calls === 2)
+      throw new Error("Injected append failure");
+    return append(table, row);
+  };
+  const result = await refreshPrices(data, config, { now, supplierId: "S01" });
+  expect(result.status).toBe("failed");
+  expect(result.results[0].appended).toBe(1);
+  expect((await data.read("SupplierPrices")).length - before).toBe(1);
+  expect(JSON.parse((await data.read("JobRuns"))[0].detail)[0].appended).toBe(
+    1,
+  );
+});

@@ -121,6 +121,7 @@ export async function refreshPrices(
     };
   }
   for (const supplier of suppliers) {
+    let appended = 0;
     try {
       const source =
         options.sourceOverride ??
@@ -163,7 +164,6 @@ export async function refreshPrices(
         });
         throw new Error(`Price change needs review: ${review.reason}`);
       }
-      let appended = 0;
       for (const p of page.prices) {
         const latest = snapshot.SupplierPrices.filter(
           (old) =>
@@ -198,7 +198,7 @@ export async function refreshPrices(
       });
       results.push({
         supplier_id: supplier.supplier_id,
-        appended: 0,
+        appended,
         error: message,
       });
     }

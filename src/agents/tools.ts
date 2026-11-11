@@ -397,6 +397,8 @@ export function createTools(ctx: CallContext) {
     try {
       const spec = handlers[name];
       if (!spec) throw new Error("Unknown tool");
+      if (ctx.handoff && name !== "handoff")
+        throw new Error("Call has already been handed off");
       parsed = spec.input.parse(input);
       output = toolResultSchema.parse(await spec.execute(parsed));
     } catch (error) {

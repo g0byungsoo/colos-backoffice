@@ -132,3 +132,21 @@ it("records failed tool attempts without exposing backend error details", async 
   });
   expect(result.message).not.toContain("expected");
 });
+
+it("refuses direct private tool calls after handoff", async () => {
+  const data = new LocalDataSource({ persist: false });
+  const call = await createConversation({
+    data,
+    config,
+    from: "+15555550101",
+    at: "2026-11-11T03:00:00Z",
+    offline: true,
+  });
+  await call.tools.invoke("handoff", { reason: "Wrong invoice" });
+  expect(
+    (await call.tools.invoke("pickup_status", { order_id: "O001" })).ok,
+  ).toBe(false);
+  expect(
+    (await call.tools.invoke("search", { query: "private notes" })).ok,
+  ).toBe(false);
+});

@@ -184,7 +184,10 @@ export function createApp(
       allowed: new Set(saved.allowed),
       toolCalls: [],
       retrievedIds: [],
-      handoff: false,
+      handoff:
+        call.outcome === "handoff" ||
+        call.route === "person" ||
+        call.route === "message",
       offline: !config.OPENAI_API_KEY,
       callId: call.call_id,
     };

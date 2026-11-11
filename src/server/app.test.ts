@@ -307,3 +307,27 @@ describe("HTTP boundaries", () => {
     expect(await response.text()).not.toContain("private-credential-marker");
   });
 });
+
+it("restores a completed handoff across separate tool HTTP requests", async () => {
+  const h = harness();
+  await start(h);
+  expect(
+    (
+      await (
+        await invoke(h, "verify_identity", {
+          order_id: "O001",
+          company: "Alder Wharf Works",
+        })
+      ).json()
+    ).ok,
+  ).toBe(true);
+  expect(
+    (await (await invoke(h, "handoff", { reason: "Invoice problem" })).json())
+      .ok,
+  ).toBe(true);
+  const result = await (
+    await invoke(h, "pickup_status", { order_id: "O001" })
+  ).json();
+  expect(result.ok).toBe(false);
+  expect((await h.data.read("Calls"))[0].outcome).toBe("handoff");
+});

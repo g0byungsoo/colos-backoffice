@@ -284,7 +284,12 @@ export async function createConversation(options: {
                 }),
               },
             ],
-            outputGuardrails: [outputGuardrail(ctx.allowed)],
+            outputGuardrails: [
+              outputGuardrail(
+                ctx.allowed,
+                lastReason === "pricing" || lastReason === "negotiation",
+              ),
+            ],
           });
           try {
             const answer = await runner.run(
@@ -336,7 +341,13 @@ export async function createConversation(options: {
         .find((call) => call.name === "handoff");
       if (handoff) reply = (handoff.output as { message: string }).message;
     }
-    if (!allowedMoney(reply, ctx.allowed))
+    if (
+      !allowedMoney(
+        reply,
+        ctx.allowed,
+        lastReason === "pricing" || lastReason === "negotiation",
+      )
+    )
       reply = "I need a current pricing lookup before quoting an amount.";
     history.push({ role: "user", text }, { role: "assistant", text: reply });
     lastText = reply;

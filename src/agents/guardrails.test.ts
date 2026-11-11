@@ -88,3 +88,15 @@ describe("validated tool result payloads", () => {
     ).toBe(false);
   });
 });
+
+it("rejects bare and written-out prices while preserving dimensions", () => {
+  expect(allowedMoney("The price is 2500.", new Set())).toBe(false);
+  expect(allowedMoney("The price is fifty.", new Set())).toBe(false);
+  expect(allowedMoney("USD2500", new Set())).toBe(false);
+  expect(allowedMoney("USD2500", new Set([250000]))).toBe(true);
+  expect(allowedMoney("The price is two thousand.", new Set())).toBe(false);
+  expect(allowedMoney("2500", new Set(), true)).toBe(false);
+  expect(
+    allowedMoney("The price for 20 feet is $2500.", new Set([250000])),
+  ).toBe(true);
+});
