@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+.cache/
+.logs/
+out/
+node_modules/
+dist/
+coverage/
