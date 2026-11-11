@@ -1,0 +1,5 @@
+From: buyer01@example.com
+Order: O001
+Offer-Cents: 220000
+
+Please ask the owner about this discount.

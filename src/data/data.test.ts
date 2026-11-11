@@ -101,3 +101,59 @@ describe("local source", () => {
     expect(failure).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Sheets optimistic writes", () => {
+  it("preserves physical row numbers when a user cleared a preceding row", async () => {
+    const { SheetsDataSource } = await import("./sheets.js");
+    const { headers } = await import("../domain/schemas.js");
+    const customer = (
+      await new LocalDataSource({ persist: false }).read("Customers")
+    )[0];
+    if (!customer) throw new Error("Missing seed");
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        values: [
+          headers.Customers,
+          [],
+          headers.Customers.map(
+            (key) => customer[key as keyof typeof customer],
+          ),
+        ],
+      },
+    });
+    const update = vi.fn().mockResolvedValue({});
+    const source = new SheetsDataSource({ GOOGLE_SHEET_ID: "synthetic" });
+    vi.spyOn(source, "api").mockResolvedValue({
+      spreadsheets: { values: { get, update } },
+    } as unknown as Awaited<ReturnType<typeof source.api>>);
+    await source.upsert(
+      "Customers",
+      { ...customer, contact_name: "Updated" },
+      customer,
+    );
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ range: "'Customers'!A3" }),
+    );
+    get.mockResolvedValue({
+      data: {
+        values: [
+          headers.Customers,
+          [],
+          headers.Customers.map((key) =>
+            key === "contact_name"
+              ? "Human edit"
+              : customer[key as keyof typeof customer],
+          ),
+        ],
+      },
+    });
+    await expect(
+      source.upsert(
+        "Customers",
+        { ...customer, contact_name: "Overwrite" },
+        customer,
+      ),
+    ).rejects.toThrow("Concurrent");
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+});

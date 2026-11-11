@@ -1,0 +1,5 @@
+From: buyer01@example.com
+Order: O001
+Offer-Cents: 200000
+
+Can you accept this offer for our container?

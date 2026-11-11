@@ -41,6 +41,7 @@ export const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  RUNTIME_DIR: z.string().default("."),
   PORT: z.coerce.number().int().positive().default(3000),
 });
 export type Config = z.infer<typeof envSchema>;
