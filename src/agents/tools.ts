@@ -421,7 +421,26 @@ export function createTools(ctx: CallContext) {
   const sdkTools = Object.entries(handlers).map(([name, spec]) =>
     tool({
       name,
-      description: `Colos ${name}. Account access is checked by code.`,
+      description: (
+        {
+          availability:
+            "Public stock lookup. Available to unknown callers without identity. Use nullable filters when unspecified.",
+          pricing:
+            "Public current list price by depot and container type. No identity required.",
+          search:
+            "Search current policies and FAQs for any caller. Customer notes are automatically restricted to a verified account.",
+          verify_identity:
+            "Verify private account access using a matching order number and company name.",
+          pickup_status:
+            "Read the verified customer own order status. Never request another company order.",
+          negotiate_offer:
+            "Submit the verified customer offer for their own order. Code decides and queues approval; do not repeat currency in the reply.",
+          pickup_confirmation:
+            "Record a saved depot or supplier pickup confirmation for review. Does not schedule or change an order.",
+          handoff:
+            "Request help for an actual existing order problem. Do not use for general questions, abuse or privacy refusals.",
+        } as Record<string, string>
+      )[name],
       parameters: spec.input as z.ZodObject<any>,
       isEnabled: () => {
         if (ctx.handoff) return name === "handoff";

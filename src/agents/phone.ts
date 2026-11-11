@@ -144,8 +144,9 @@ export async function createConversation(options: {
     };
     try {
       if (unsafeInput(text)) {
-        reply =
-          "I cannot follow those instructions. I can help with container questions.";
+        reply = /\b(fuck|idiot|kill yourself)\b/i.test(text)
+          ? "I can help with container questions. Please keep the conversation respectful."
+          : "I cannot follow those instructions. I can help with container questions.";
         lastReason = "off_topic";
       } else if (route.route === "person") {
         ctx.handoff = true;
@@ -173,7 +174,11 @@ export async function createConversation(options: {
                 },
               ],
             }),
-            text,
+            JSON.stringify({
+              caller_type: party?.party_type ?? "unknown",
+              verified_customer_id: ctx.customerId ?? null,
+              message: text,
+            }),
             { maxTurns: 2 },
           );
           lastReason = classified.finalOutput?.reason ?? "not_sure";
@@ -316,6 +321,15 @@ export async function createConversation(options: {
         retrievedIds: ctx.retrievedIds,
       });
     }
+    const committed = [...ctx.toolCalls]
+      .reverse()
+      .find(
+        (call) =>
+          (call.name === "negotiate_offer" ||
+            call.name === "pickup_confirmation") &&
+          (call.output as { ok?: boolean }).ok,
+      );
+    if (committed) reply = (committed.output as { message: string }).message;
     if (ctx.handoff && route.route !== "person") {
       const handoff = [...ctx.toolCalls]
         .reverse()
