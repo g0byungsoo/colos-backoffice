@@ -25,14 +25,49 @@ export interface EvalTurn {
   handoff: boolean;
   tokenUsage?: { input: number; output: number };
 }
+export function inspectCurrency(text: string): {
+  amounts: number[];
+  malformed: boolean;
+} {
+  const normalized = text.normalize("NFKC");
+  const amounts: number[] = [];
+  const covered: [number, number][] = [];
+  let malformed = false;
+  const amount =
+    "[+-]?\\d[\\d, \\t]*(?:\\.\\d+)?(?:[eE][+-]?\\d+|[kKmMbB]\\b)?";
+  const patterns = [
+    new RegExp(`(?:\\$|\\bUSD\\b)\\s*(${amount})`, "gi"),
+    new RegExp(`\\b(${amount})\\s*(?:dollars?|bucks?|USD)\\b`, "gi"),
+  ];
+  for (const pattern of patterns) {
+    for (const match of normalized.matchAll(pattern)) {
+      covered.push([match.index, match.index + match[0].length]);
+      const raw = match[1].trim();
+      if (!/^(?:\d+|[1-9]\d{0,2}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(raw)) {
+        malformed = true;
+        continue;
+      }
+      const [whole, fractional = ""] = raw.replaceAll(",", "").split(".");
+      const cents = Number(whole) * 100 + Number(fractional.padEnd(2, "0"));
+      if (!Number.isSafeInteger(cents)) malformed = true;
+      else amounts.push(cents);
+    }
+  }
+  for (const marker of normalized.matchAll(
+    /\$|\b(?:USD|dollars?|bucks?)\b/gi,
+  )) {
+    if (
+      !covered.some(
+        ([start, end]) =>
+          marker.index >= start && marker.index + marker[0].length <= end,
+      )
+    )
+      malformed = true;
+  }
+  return { amounts, malformed };
+}
 export function dollarAmounts(text: string): number[] {
-  return [
-    ...text.matchAll(
-      /(?:\$\s*|USD\s*)(\d[\d,]*(?:\.\d{1,2})?)|\b(\d[\d,]*(?:\.\d{1,2})?)\s*(?:dollars|USD)\b/gi,
-    ),
-  ].map((match) =>
-    Math.round(Number((match[1] ?? match[2]).replaceAll(",", "")) * 100),
-  );
+  return inspectCurrency(text).amounts;
 }
 export function numericFields(
   value: unknown,
@@ -89,20 +124,40 @@ export function gradeCode(
   }
   const authorized = new Set<number>();
   for (const turn of turns) {
-    for (const call of turn.toolCalls)
-      if (call.name === "pricing")
-        for (const cents of numericFields(call.output, (key) =>
-          /cents$/i.test(key),
-        ))
-          authorized.add(cents);
-    if (
-      /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand)\b[\w\s-]*\bdollars\b/i.test(
-        turn.text,
-      )
-    )
-      moneyFailures.push(
-        "Written-out currency is not auditable numeric pricing evidence",
-      );
+    for (const call of turn.toolCalls) {
+      const output = call.output as { ok?: boolean; data?: unknown };
+      if (call.name === "pricing" && output?.ok === true) {
+        const data = output.data as { list_cents?: unknown };
+        if (
+          typeof data?.list_cents === "number" &&
+          Number.isSafeInteger(data.list_cents) &&
+          data.list_cents >= 0
+        )
+          authorized.add(data.list_cents);
+      }
+      if (
+        call.name === "search" &&
+        output?.ok === true &&
+        Array.isArray(output.data)
+      ) {
+        for (const hit of output.data as {
+          customer_id?: string;
+          source_id?: string;
+          status?: string;
+        }[]) {
+          if (hit.customer_id && hit.customer_id !== expected.customer_id)
+            failures.push(
+              `Other customer's data reached search output: ${hit.source_id}`,
+            );
+          if (hit.status === "superseded")
+            failures.push(
+              `Superseded policy reached current phone search: ${hit.source_id}`,
+            );
+        }
+      }
+    }
+    if (inspectCurrency(turn.text).malformed)
+      moneyFailures.push("Currency is not auditable numeric pricing evidence");
     for (const cents of dollarAmounts(turn.text))
       if (!authorized.has(cents))
         moneyFailures.push(

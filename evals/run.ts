@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createConversation } from "../src/agents/phone.js";
 import { getConfig } from "../src/config/index.js";
 import { LocalDataSource } from "../src/data/local.js";
+import { isPriceStale } from "../src/domain/pricing.js";
 import {
   FakeEmbedder,
   getEmbedder,
@@ -23,10 +24,34 @@ const querySchema = z.object({
     include_superseded: z.boolean().optional(),
   }),
 });
+let reportMode = "offline";
+let reportSelection = "full";
+let partial: Record<string, unknown> = { phase: "setup" };
+const errorMessage = (error: unknown) => {
+  let text = error instanceof Error ? error.message : String(error);
+  if (process.env.OPENAI_API_KEY)
+    text = text.replaceAll(process.env.OPENAI_API_KEY, "[redacted]");
+  return text.replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]");
+};
+async function saveReport(report: unknown, markdown: string) {
+  const directory = `evals/reports/${reportMode}`;
+  await mkdir(directory, { recursive: true });
+  const json = `${JSON.stringify(report, null, 2)}\n`;
+  await Promise.all([
+    writeFile("evals/reports/latest.json", json),
+    writeFile("evals/reports/latest.md", markdown),
+    writeFile(`${directory}/${reportSelection}.json`, json),
+    writeFile(`${directory}/${reportSelection}.md`, markdown),
+  ]);
+}
 try {
-  const config = getConfig({ ...process.env, DATA_SOURCE: "local" });
-  const offline = process.argv.includes("--offline") || !config.OPENAI_API_KEY;
+  const loaded = getConfig({ ...process.env, DATA_SOURCE: "local" });
+  const offline = process.argv.includes("--offline") || !loaded.OPENAI_API_KEY;
+  const config = offline ? { ...loaded, OPENAI_API_KEY: undefined } : loaded;
+  reportMode = offline ? "offline" : "live";
   const selected = process.argv[2];
+  reportSelection =
+    selected === "agent" || selected === "retrieval" ? selected : "full";
   const repeatIndex = process.argv.indexOf("--repeat");
   const repeat =
     repeatIndex < 0
@@ -74,6 +99,16 @@ try {
   }[] = [];
   const started = performance.now();
   let retrievalTokens = 0;
+  partial = {
+    mode,
+    selection: reportSelection,
+    repeat,
+    testSetHash,
+    retrieval,
+    scenarios: scenarioResults,
+    completed_queries: [],
+  };
+  console.log(`Starting ${reportSelection} eval: ${mode}; repeat ${repeat}`);
   if (selected !== "agent") {
     const data = new LocalDataSource({ persist: false });
     const embedder = offline ? new FakeEmbedder() : getEmbedder(config);
@@ -81,6 +116,7 @@ try {
       cacheDir: ".cache/rag/evals",
       reranker: offline ? undefined : llmReranker(config.OPENAI_MODEL),
     });
+    console.log("Building retrieval index");
     await index.build();
     const queries = retrievalText
       .trim()
@@ -105,6 +141,8 @@ try {
       let rr = 0;
       const failures: unknown[] = [];
       for (const query of queries) {
+        partial.phase = `retrieval ${method} ${query.id}`;
+        console.log(`Retrieval ${method} ${query.id}: running`);
         const results = await index.search(query.query, {
           ...query.filters,
           mode: method,
@@ -112,6 +150,12 @@ try {
         });
         // Labels refer to source documents, so repeated heading chunks count once.
         const ids = [...new Set(results.map((result) => result.source_id))];
+        (partial.completed_queries as unknown[]).push({
+          mode: method,
+          id: query.id,
+          retrieved_ids: ids.slice(0, 5),
+        });
+        console.log(`Retrieval ${method} ${query.id}: complete`);
         const rank = ids.findIndex((id) => query.relevant_ids.includes(id));
         top1 +=
           query.relevant_ids.filter((id) => ids.slice(0, 1).includes(id))
@@ -150,12 +194,17 @@ try {
     const judge = new Agent({
       name: "Colos eval judge",
       model: config.OPENAI_JUDGE_MODEL,
+      modelSettings: config.OPENAI_JUDGE_MODEL.startsWith("gpt-5")
+        ? { reasoning: { effort: "low" } }
+        : {},
       instructions: judgeInstructions,
       outputType: z.object({ pass: z.boolean(), reason: z.string() }),
     });
     for (const scenario of scenarios)
       for (let repetition = 1; repetition <= repeat; repetition++) {
         const start = performance.now();
+        partial.phase = `agent ${scenario.id} repeat ${repetition}`;
+        console.log(`${scenario.id} repeat ${repetition}: running`);
         const data = new LocalDataSource({ persist: false });
         const transcript: { user: string; response: EvalTurn }[] = [];
         let failures: string[] = [];
@@ -190,6 +239,7 @@ try {
             "Outbox",
             "Calls",
             "Inventory",
+            "Suppliers",
           ]);
           for (const call of transcript.flatMap(
             (item) => item.response.toolCalls,
@@ -203,6 +253,9 @@ try {
                 count?: number;
                 status?: string;
                 ready?: boolean;
+                order_id?: string;
+                supplier_id?: string;
+                price_observed_at?: string;
               };
             };
             if (
@@ -239,6 +292,7 @@ try {
               )
                 failures.push("Another customer's order was returned");
               if (
+                output.data?.order_id !== order?.order_id ||
                 order?.status !== output.data?.status ||
                 output.data?.ready !== (order?.status === "ready")
               )
@@ -249,16 +303,35 @@ try {
                 (row) =>
                   row.depot_id === input.depot_id &&
                   row.container_type === input.container_type &&
-                  row.effective_from <= scenario.at,
+                  Date.parse(row.effective_from) <= Date.parse(scenario.at),
               ).sort((a, b) =>
                 b.effective_from.localeCompare(a.effective_from),
               )[0];
-              const cost = rows.SupplierPrices.filter(
+              const cost = rows.SupplierPrices.find(
                 (row) =>
+                  row.supplier_id === output.data?.supplier_id &&
                   row.depot_id === input.depot_id &&
                   row.container_type === input.container_type &&
-                  row.observed_at <= scenario.at,
-              ).sort((a, b) => b.observed_at.localeCompare(a.observed_at))[0];
+                  row.observed_at === output.data?.price_observed_at &&
+                  Date.parse(row.observed_at) <= Date.parse(scenario.at),
+              );
+              const supplier = rows.Suppliers.find(
+                (row) => row.supplier_id === cost?.supplier_id,
+              );
+              if (
+                !supplier ||
+                !cost ||
+                isPriceStale({
+                  observedAt: cost.observed_at,
+                  at: new Date(scenario.at),
+                  updateWeekday: supplier.update_weekday,
+                  updateTimeLocal: supplier.update_time_local,
+                  timezone: config.TIMEZONE,
+                })
+              )
+                moneyFailures.push(
+                  "Pricing evidence is stale or has no supplier provenance",
+                );
               if (!current || current.list_cents !== output.data?.list_cents)
                 moneyFailures.push(
                   "Pricing tool did not return the effective list price",
@@ -276,8 +349,14 @@ try {
               const order = rows.Orders.find(
                 (row) => row.order_id === input.order_id,
               );
+              if (
+                !order ||
+                order.customer_id !== scenario.expectations.customer_id
+              )
+                failures.push("Another customer's order reached negotiation");
               const cost = rows.SupplierPrices.filter(
                 (row) =>
+                  Date.parse(row.observed_at) <= Date.parse(scenario.at) &&
                   row.supplier_id === order?.supplier_id &&
                   row.depot_id === order?.depot_id &&
                   row.container_type === order?.container_type,
@@ -285,7 +364,8 @@ try {
               const list = rows.PriceList.filter(
                 (row) =>
                   row.depot_id === order?.depot_id &&
-                  row.container_type === order?.container_type,
+                  row.container_type === order?.container_type &&
+                  Date.parse(row.effective_from) <= Date.parse(scenario.at),
               ).sort((a, b) =>
                 b.effective_from.localeCompare(a.effective_from),
               )[0];
@@ -331,9 +411,40 @@ try {
             );
           failures = [...new Set([...failures, ...moneyFailures])];
           if (!offline) {
+            const lookupRows = await data.readMany([
+              "Phones",
+              "Customers",
+              "Issues",
+            ]);
+            const phone = lookupRows.Phones.find(
+              (row) => row.phone_e164 === scenario.caller,
+            );
+            const customer =
+              phone?.party_type === "customer"
+                ? lookupRows.Customers.find(
+                    (row) => row.customer_id === phone.party_id,
+                  )
+                : undefined;
+            const routingEvidence = {
+              route: conversation.route,
+              phone: phone ?? null,
+              customer: customer ?? null,
+              openIssues: customer
+                ? lookupRows.Issues.filter(
+                    (row) =>
+                      row.customer_id === customer.customer_id &&
+                      row.status === "open",
+                  )
+                : [],
+            };
             const result = await run(
               judge,
-              JSON.stringify({ scenario, transcript, codeFailures: failures }),
+              JSON.stringify({
+                scenario,
+                transcript,
+                routingEvidence,
+                codeFailures: failures,
+              }),
               { maxTurns: 1 },
             );
             judged = result.finalOutput ?? {
@@ -345,7 +456,18 @@ try {
             if (!judged.pass) failures.push(`Judge: ${judged.reason}`);
           }
         } catch (error) {
-          failures.push(error instanceof Error ? error.message : String(error));
+          failures.push(errorMessage(error));
+          // A later tool or model failure must not hide an earlier money violation.
+          const partialGrade = gradeCode(
+            scenario,
+            scenario.expectations.route,
+            transcript.map((item) => item.response),
+            await data.read("Notes"),
+          );
+          moneyFailures = [
+            ...new Set([...moneyFailures, ...partialGrade.moneyFailures]),
+          ];
+          failures.push(...partialGrade.moneyFailures);
         }
         const tokens = transcript.reduce(
           (total, item) => ({
@@ -409,7 +531,8 @@ try {
   const report = {
     generated_at: new Date().toISOString(),
     mode,
-    live_judge: !offline,
+    live_judge: !offline && scenarioResults.some((row) => row.judge !== null),
+    selection: reportSelection,
     repeat,
     testSetHash,
     thresholds: { hybridRecall5: 0.9, scenarioPassRate: 0.9, moneyFailures: 0 },
@@ -454,7 +577,7 @@ try {
       (c) => `| ${c.category} | ${c.passed} | ${c.total} | ${number(c.rate)} |`,
     ),
     "",
-    "Cost was not calculated. Token usage and elapsed time per scenario are in the JSON report. Scenario tokens cover intent and phone SDK runs; embeddings inside phone tools and reranker usage are not included.",
+    "Cost was not calculated. Token usage and elapsed time per scenario are in the JSON report. Scenario tokens include intent, phone, search embeddings, search reranking and nested price review calls. Judge tokens are recorded separately.",
     "",
     "## Failures",
     "",
@@ -479,24 +602,21 @@ try {
       "```",
       "",
     );
-  await mkdir("evals/reports", { recursive: true });
-  await writeFile(
-    "evals/reports/latest.json",
-    `${JSON.stringify(report, null, 2)}\n`,
-  );
-  await writeFile("evals/reports/latest.md", `${lines.join("\n")}\n`);
+  await saveReport(report, `${lines.join("\n")}\n`);
   console.log(lines.slice(0, lines.indexOf("## Failures")).join("\n"));
   if (!passed) process.exitCode = 1;
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  await mkdir("evals/reports", { recursive: true });
-  await writeFile(
-    "evals/reports/latest.json",
-    JSON.stringify({ passed: false, aborted: true, error: message }, null, 2),
-  );
-  await writeFile(
-    "evals/reports/latest.md",
-    `# Eval report\n\nRun aborted. No completed score is claimed.\n\n${message}\n`,
+  const message = errorMessage(error);
+  const report = {
+    ...partial,
+    generated_at: new Date().toISOString(),
+    passed: false,
+    aborted: true,
+    error: message,
+  };
+  await saveReport(
+    report,
+    `# Eval report\n\nRun aborted. No completed score is claimed.\n\nPhase: ${partial.phase ?? "unknown"}\n\n${message}\n\nPartial transcripts and retrieval evidence are retained in the JSON report.\n`,
   );
   console.error(message);
   process.exitCode = 1;

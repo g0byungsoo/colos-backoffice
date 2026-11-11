@@ -16,6 +16,52 @@ const turn = (text: string, calls: EvalTurn["toolCalls"] = []): EvalTurn => ({
   handoff: false,
 });
 describe("eval grader", () => {
+  it("does not trust failed pricing or supplier cost as quote evidence", () => {
+    for (const output of [
+      { ok: false, data: { list_cents: 280000 } },
+      { ok: true, data: { cost_cents: 280000 } },
+    ]) {
+      expect(
+        gradeCode(
+          scenario,
+          "agent",
+          [turn("$2800", [{ name: "pricing", input: {}, output }])],
+          [],
+        ).pass,
+      ).toBe(false);
+    }
+  });
+  it("rejects ungrounded currency variants and malformed amounts", () => {
+    for (const text of [
+      "2800 bucks",
+      "two thousand dollars",
+      "$2 800",
+      "$28e2",
+      "$2,80.00",
+      "$2800.001",
+      "＄２８００",
+    ]) {
+      expect(
+        gradeCode(scenario, "agent", [turn(text)], []).moneyFailures.length,
+      ).toBeGreaterThan(0);
+    }
+  });
+  it("checks private search payload even when retrieved ids are omitted", () => {
+    const response = turn("Nothing to see", [
+      {
+        name: "search",
+        input: {},
+        output: {
+          ok: true,
+          data: [
+            { customer_id: "C002", source_id: "N-secret", status: "current" },
+          ],
+        },
+      },
+    ]);
+    expect(gradeCode(scenario, "agent", [response], []).pass).toBe(false);
+  });
+
   it("rejects a plausible invented price and a price returned only by search", () => {
     expect(
       gradeCode(scenario, "agent", [turn("$2800")], []).moneyFailures,
@@ -35,7 +81,11 @@ describe("eval grader", () => {
   });
   it("accepts pricing evidence from an earlier turn but never a future turn", () => {
     const evidence = turn("Current price found.", [
-      { name: "pricing", input: {}, output: { data: { list_cents: 280000 } } },
+      {
+        name: "pricing",
+        input: {},
+        output: { ok: true, data: { list_cents: 280000 } },
+      },
     ]);
     expect(
       gradeCode(scenario, "agent", [evidence, turn("$2,800.00")], []).pass,
