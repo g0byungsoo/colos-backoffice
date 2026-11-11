@@ -326,15 +326,17 @@ export async function createConversation(options: {
         retrievedIds: ctx.retrievedIds,
       });
     }
-    const committed = [...ctx.toolCalls]
+    // Action outcomes belong to code, including refusal or failure. A model
+    // cannot turn an unsuccessful attempt into a claimed submission or booking.
+    const actionResult = [...ctx.toolCalls]
       .reverse()
       .find(
         (call) =>
-          (call.name === "negotiate_offer" ||
-            call.name === "pickup_confirmation") &&
-          (call.output as { ok?: boolean }).ok,
+          call.name === "negotiate_offer" ||
+          call.name === "pickup_confirmation",
       );
-    if (committed) reply = (committed.output as { message: string }).message;
+    if (actionResult)
+      reply = (actionResult.output as { message: string }).message;
     if (ctx.handoff && route.route !== "person") {
       const handoff = [...ctx.toolCalls]
         .reverse()

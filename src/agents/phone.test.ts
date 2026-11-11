@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { Runner } from "@openai/agents";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getConfig } from "../config/index.js";
 import { LocalDataSource } from "../data/local.js";
 import { allowedMoney, unsafeInput } from "./guardrails.js";
 import { createConversation } from "./phone.js";
 
 const config = getConfig({ DATA_SOURCE: "local" });
+afterEach(() => vi.restoreAllMocks());
 describe("phone security", () => {
   it("blocks invented amounts, including plain dollar wording", () => {
     expect(allowedMoney("$123.00", new Set())).toBe(false);
@@ -149,4 +151,85 @@ it("refuses direct private tool calls after handoff", async () => {
   expect(
     (await call.tools.invoke("search", { query: "private notes" })).ok,
   ).toBe(false);
+});
+
+describe("action responses remain authoritative when a tool fails", () => {
+  it.each([
+    {
+      tool: "negotiate_offer",
+      reason: "negotiation",
+      message: "A current price is unavailable. The owner must confirm it.",
+      claim: "I submitted your offer for approval.",
+      input: { order_id: "O001", offer_cents: 200000 },
+    },
+    {
+      tool: "pickup_confirmation",
+      reason: "pickup_confirmation",
+      message: "This order is not assigned to this caller.",
+      claim: "Your pickup is now scheduled.",
+      input: { order_id: "O001", message: "Tomorrow morning" },
+    },
+  ])(
+    "does not claim success after failed $tool",
+    async ({ tool, reason, message, claim, input }) => {
+      const call = await createConversation({
+        data: new LocalDataSource({ persist: false }),
+        config: { ...config, OPENAI_API_KEY: "not-used" },
+        from: "+15555550199",
+        at: "2026-11-11T03:00:00Z",
+        offline: false,
+      });
+      vi.spyOn(Runner.prototype, "run")
+        .mockResolvedValueOnce({
+          finalOutput: { reason },
+          rawResponses: [],
+        } as never)
+        .mockImplementationOnce(async () => {
+          call.context.toolCalls.push({
+            name: tool,
+            input,
+            output: { ok: false, message },
+            ms: 1,
+          });
+          return { finalOutput: claim, rawResponses: [] } as never;
+        });
+      const result = await call.turn("Please process this request.");
+      expect(result.text).toBe(message);
+      expect(result.text).not.toBe(claim);
+      expect(result.toolCalls[0].output).toEqual({ ok: false, message });
+    },
+  );
+  it("keeps handoff precedence over a failed action", async () => {
+    const call = await createConversation({
+      data: new LocalDataSource({ persist: false }),
+      config: { ...config, OPENAI_API_KEY: "not-used" },
+      from: "+15555550199",
+      at: "2026-11-11T03:00:00Z",
+      offline: false,
+    });
+    vi.spyOn(Runner.prototype, "run")
+      .mockResolvedValueOnce({
+        finalOutput: { reason: "negotiation" },
+        rawResponses: [],
+      } as never)
+      .mockImplementationOnce(async () => {
+        call.context.toolCalls.push({
+          name: "negotiate_offer",
+          input: {},
+          output: { ok: false, message: "No current price." },
+          ms: 1,
+        });
+        await call.tools.invoke("handoff", {
+          reason: "Owner review requested",
+        });
+        return {
+          finalOutput: "Your offer was submitted.",
+          rawResponses: [],
+        } as never;
+      });
+    const result = await call.turn("Please process this request.");
+    expect(result.handoff).toBe(true);
+    expect(result.text).toContain("priority callback");
+    expect(result.text).not.toContain("submitted");
+  });
 });
