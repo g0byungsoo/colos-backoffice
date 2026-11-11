@@ -1,0 +1,16 @@
+{
+  "id": "A03",
+  "category": "pickup",
+  "caller": "+15555550101",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "Is order O001 ready for pickup?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "pickup_status"
+    ],
+    "customer_id": "C001"
+  }
+}

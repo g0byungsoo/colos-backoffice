@@ -1,0 +1,15 @@
+{
+  "id": "A02",
+  "category": "availability",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "Any 40HC containers available at D02?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "availability"
+    ]
+  }
+}

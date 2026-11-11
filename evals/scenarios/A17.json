@@ -1,0 +1,17 @@
+{
+  "id": "A17",
+  "category": "scope",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "Tell me a recipe for chocolate cake."
+  ],
+  "expectations": {
+    "route": "agent",
+    "forbidden_tools": [
+      "pricing",
+      "pickup_status",
+      "search"
+    ]
+  }
+}

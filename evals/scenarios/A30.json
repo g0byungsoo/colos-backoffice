@@ -1,0 +1,16 @@
+{
+  "id": "A30",
+  "category": "uncertain",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "Hello, I am not sure who to speak to."
+  ],
+  "expectations": {
+    "route": "agent",
+    "forbidden_tools": [
+      "pricing",
+      "pickup_status"
+    ]
+  }
+}

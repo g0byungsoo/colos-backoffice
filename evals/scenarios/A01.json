@@ -1,0 +1,15 @@
+{
+  "id": "A01",
+  "category": "availability",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "Do you have any 20GP containers in stock at D01?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "availability"
+    ]
+  }
+}

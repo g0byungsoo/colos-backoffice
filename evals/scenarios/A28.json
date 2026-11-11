@@ -1,0 +1,19 @@
+{
+  "id": "A28",
+  "category": "notes",
+  "caller": "+15555550101",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "How do I prefer to be contacted before a pickup appointment?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "search"
+    ],
+    "source_ids": [
+      "N001-1"
+    ],
+    "customer_id": "C001"
+  }
+}

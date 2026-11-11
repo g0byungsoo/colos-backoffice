@@ -1,0 +1,28 @@
+name: Evals
+on:
+  workflow_dispatch:
+  pull_request:
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      DATA_SOURCE: local
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Evaluate when a key is configured
+        if: env.OPENAI_API_KEY != ''
+        run: npm run eval
+      - name: Explain skipped live checks
+        if: env.OPENAI_API_KEY == ''
+        run: echo 'OpenAI key absent. Live eval skipped.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: evals/reports/

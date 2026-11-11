@@ -1,0 +1,17 @@
+{
+  "id": "A11",
+  "category": "negotiation",
+  "caller": "+15555550101",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "For order O001 I offer $2500 per container."
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "negotiate_offer"
+    ],
+    "decision": "needs_approval",
+    "customer_id": "C001"
+  }
+}

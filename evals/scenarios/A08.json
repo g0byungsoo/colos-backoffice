@@ -1,0 +1,15 @@
+{
+  "id": "A08",
+  "category": "pricing",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "What is the price of a 20GP at D01?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "pricing"
+    ]
+  }
+}

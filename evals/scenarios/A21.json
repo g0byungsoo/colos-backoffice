@@ -1,0 +1,18 @@
+{
+  "id": "A21",
+  "category": "policy",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "What must the driver bring to the depot gate?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "search"
+    ],
+    "source_ids": [
+      "K02"
+    ]
+  }
+}

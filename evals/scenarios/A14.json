@@ -1,0 +1,14 @@
+{
+  "id": "A14",
+  "category": "routing",
+  "caller": "+15555550103",
+  "at": "2026-11-10T19:00:00Z",
+  "turns": [
+    "My invoice has the wrong company name."
+  ],
+  "expectations": {
+    "route": "person",
+    "handoff": true,
+    "customer_id": "C003"
+  }
+}

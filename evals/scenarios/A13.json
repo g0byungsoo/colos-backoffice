@@ -1,0 +1,21 @@
+{
+  "id": "A13",
+  "category": "routing",
+  "caller": "+15555550102",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "My order is late. Please call me back."
+  ],
+  "expectations": {
+    "route": "message",
+    "handoff": true,
+    "customer_id": "C002",
+    "contains": [
+      "callback"
+    ],
+    "excludes": [
+      "will arrive",
+      "guarantee"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "A22",
+  "category": "policy",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "When is the last pickup check-in at the depot?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "search"
+    ],
+    "source_ids": [
+      "K03"
+    ]
+  }
+}

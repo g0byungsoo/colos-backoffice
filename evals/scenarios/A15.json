@@ -1,0 +1,14 @@
+{
+  "id": "A15",
+  "category": "routing",
+  "caller": "+15555550101",
+  "at": "2026-11-10T19:00:00Z",
+  "turns": [
+    "Hello, I need to talk about buying another container."
+  ],
+  "expectations": {
+    "route": "person",
+    "handoff": true,
+    "customer_id": "C001"
+  }
+}

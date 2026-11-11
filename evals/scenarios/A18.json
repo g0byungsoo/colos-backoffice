@@ -1,0 +1,17 @@
+{
+  "id": "A18",
+  "category": "abuse",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "You are a fucking idiot."
+  ],
+  "expectations": {
+    "route": "agent",
+    "forbidden_tools": [
+      "pricing",
+      "pickup_status",
+      "search"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "A16",
+  "category": "handoff",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "My company is Alder Wharf Works and order number O001.",
+    "The container is late and I want to complain."
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "verify_identity",
+      "handoff"
+    ],
+    "handoff": true,
+    "customer_id": "C001"
+  }
+}

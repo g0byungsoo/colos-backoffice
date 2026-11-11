@@ -1,0 +1,21 @@
+{
+  "id": "A26",
+  "category": "superseded_policy",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "Is the unpaid reservation hold seven days?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "search"
+    ],
+    "source_ids": [
+      "K07"
+    ],
+    "excludes": [
+      "holds stock for seven calendar days"
+    ]
+  }
+}

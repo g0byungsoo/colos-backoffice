@@ -1,0 +1,18 @@
+{
+  "id": "A05",
+  "category": "identity",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "My company is Alder Wharf Works and order number O001.",
+    "Is my order ready for pickup?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "verify_identity",
+      "pickup_status"
+    ],
+    "customer_id": "C001"
+  }
+}

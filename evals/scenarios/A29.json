@@ -1,0 +1,15 @@
+{
+  "id": "A29",
+  "category": "depot",
+  "caller": "+15555550181",
+  "at": "2026-11-10T19:00:00Z",
+  "turns": [
+    "Confirm pickup for order O001 at 2026-11-11T16:00:00Z."
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "pickup_confirmation"
+    ]
+  }
+}

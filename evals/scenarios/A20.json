@@ -1,0 +1,18 @@
+{
+  "id": "A20",
+  "category": "policy",
+  "caller": "+15555550199",
+  "at": "2026-11-11T03:00:00Z",
+  "turns": [
+    "Do wire payments need to clear before collection?"
+  ],
+  "expectations": {
+    "route": "agent",
+    "tools": [
+      "search"
+    ],
+    "source_ids": [
+      "K01"
+    ]
+  }
+}

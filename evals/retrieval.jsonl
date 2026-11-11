@@ -1,0 +1,40 @@
+{"id": "R01", "query": "Do wire funds have to clear before a driver can collect?", "relevant_ids": ["K01"], "filters": {}}
+{"id": "R02", "query": "Can a payment receipt replace the depot release number?", "relevant_ids": ["K02", "K12"], "filters": {}}
+{"id": "R03", "query": "What does a driver need at the gate to pick up a box?", "relevant_ids": ["K02", "K12"], "filters": {}}
+{"id": "R04", "query": "How do we get a release number after payment?", "relevant_ids": ["K02"], "filters": {}}
+{"id": "R05", "query": "Should I book a pickup appointment before dispatching the truck?", "relevant_ids": ["K02"], "filters": {}}
+{"id": "R06", "query": "When is the last pickup check-in at the yard?", "relevant_ids": ["K03"], "filters": {}}
+{"id": "R07", "query": "Are the depot gates open on weekends?", "relevant_ids": ["K03"], "filters": {}}
+{"id": "R08", "query": "What are the gate hours for Marsh Gate?", "relevant_ids": ["K03"], "filters": {}}
+{"id": "R09", "query": "Does cargo worthy mean no dents or rust?", "relevant_ids": ["K04"], "filters": {}}
+{"id": "R10", "query": "What is the difference between wind and watertight and cargo worthy?", "relevant_ids": ["K04"], "filters": {}}
+{"id": "R11", "query": "Can new one-trip containers have handling marks?", "relevant_ids": ["K04"], "filters": {}}
+{"id": "R12", "query": "Does delivery need level ground and room for a truck to turn?", "relevant_ids": ["K05"], "filters": {}}
+{"id": "R13", "query": "Does a pickup appointment also book delivery?", "relevant_ids": ["K05"], "filters": {}}
+{"id": "R14", "query": "Who handles delays on an existing order?", "relevant_ids": ["K05"], "filters": {}}
+{"id": "R15", "query": "When should I photograph damage and report it?", "relevant_ids": ["K06"], "filters": {}}
+{"id": "R16", "query": "Can the agent authorize repairs or compensation?", "relevant_ids": ["K06"], "filters": {}}
+{"id": "R17", "query": "What paperwork do I keep for a damage claim?", "relevant_ids": ["K06"], "filters": {}}
+{"id": "R18", "query": "How long does an unpaid reservation hold stock?", "relevant_ids": ["K07"], "filters": {}}
+{"id": "R19", "query": "Does a hold lock the supplier price?", "relevant_ids": ["K07"], "filters": {}}
+{"id": "R20", "query": "Who can extend a reservation before it expires?", "relevant_ids": ["K07"], "filters": {}}
+{"id": "R21", "query": "Can I get a guaranteed refund if I cancel?", "relevant_ids": ["K08"], "filters": {}}
+{"id": "R22", "query": "Who withdraws the release number on cancellation?", "relevant_ids": ["K08"], "filters": {}}
+{"id": "R23", "query": "What makes an order ready for pickup?", "relevant_ids": ["K09"], "filters": {}}
+{"id": "R24", "query": "Does available inventory alone mean my order is ready?", "relevant_ids": ["K09"], "filters": {}}
+{"id": "R25", "query": "Where does the current price come from?", "relevant_ids": ["K10"], "filters": {}}
+{"id": "R26", "query": "Can an old invoice prove the current price?", "relevant_ids": ["K10"], "filters": {}}
+{"id": "R27", "query": "Are 20GP and 40HC common container sizes?", "relevant_ids": ["K12"], "filters": {}}
+{"id": "R28", "query": "I heard a reservation lasts seven days. What is the current hold rule?", "relevant_ids": ["K07"], "filters": {}}
+{"id": "R29", "query": "What was the superseded seven calendar day reservation policy?", "relevant_ids": ["K11"], "filters": {"include_superseded": true}}
+{"id": "R30", "query": "Who reviews a disputed charge on a wrong invoice?", "relevant_ids": ["K01"], "filters": {}}
+{"id": "R31", "query": "How does Alder Wharf Works prefer contact before pickup?", "relevant_ids": ["N001-1"], "filters": {"customer_id": "C001"}}
+{"id": "R32", "query": "Which truck does Alder Wharf Works use?", "relevant_ids": ["N001-2"], "filters": {"customer_id": "C001"}}
+{"id": "R33", "query": "Should Bramble Ridge Supply be copied on Alder Wharf Works invoices?", "relevant_ids": ["N001-4"], "filters": {"customer_id": "C001"}}
+{"id": "R34", "query": "When did Alder Wharf Works request a future stock callback?", "relevant_ids": ["N001-5"], "filters": {"customer_id": "C001"}}
+{"id": "R35", "query": "What did Bramble Ridge Supply ask about weatherproof grades?", "relevant_ids": ["N002-3"], "filters": {"customer_id": "C002"}}
+{"id": "R36", "query": "How does Cedar Lantern Goods prefer contact before pickup?", "relevant_ids": ["N003-1"], "filters": {"customer_id": "C003"}}
+{"id": "R37", "query": "What truck does Dune Orchard Storage use?", "relevant_ids": ["N004-2"], "filters": {"customer_id": "C004"}}
+{"id": "R38", "query": "Who should receive Elm Harbor Fabrication paperwork?", "relevant_ids": ["N005-4"], "filters": {"customer_id": "C005"}}
+{"id": "R39", "query": "When does Fern Quarry Trading want a callback on future stock?", "relevant_ids": ["N006-5"], "filters": {"customer_id": "C006"}}
+{"id": "R40", "query": "What did Alder Wharf Works ask about weatherproof storage?", "relevant_ids": ["N001-3"], "filters": {"customer_id": "C001"}}
