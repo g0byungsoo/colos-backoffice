@@ -70,6 +70,31 @@ describe("local source", () => {
       "Persistent",
     );
   });
+  it("serializes separate local adapters before checking stale expected rows", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "colos-concurrent-"));
+    dirs.push(directory);
+    const first = new LocalDataSource({ directory });
+    const second = new LocalDataSource({ directory });
+    const old = (await first.read("Customers"))[0];
+    const attempts = await Promise.allSettled([
+      first.upsert("Customers", { ...old, contact_name: "First writer" }, old),
+      second.upsert(
+        "Customers",
+        { ...old, contact_name: "Second writer" },
+        old,
+      ),
+    ]);
+    expect(
+      attempts.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    const rejected = attempts.find((result) => result.status === "rejected");
+    expect(rejected?.status === "rejected" && rejected.reason).toBeInstanceOf(
+      ConflictError,
+    );
+    expect((await first.read("Customers"))[0].contact_name).toBe(
+      "First writer",
+    );
+  });
   it("batches cache misses and invalidates writes", async () => {
     const db = new LocalDataSource({ persist: false }),
       request = new RequestDataSource(db);

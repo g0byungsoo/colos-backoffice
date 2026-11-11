@@ -72,6 +72,7 @@ export function routeCall(input: {
       reason: open
         .map((i) => i.summary)
         .join("; ")
+        .replace(/\s+/g, " ")
         .slice(0, 240),
       priorityCallback: !daytime,
     };

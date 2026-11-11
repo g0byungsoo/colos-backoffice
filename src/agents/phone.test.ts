@@ -54,3 +54,81 @@ describe("phone security", () => {
     expect((await data.read("Outbox"))[0].subject).toBe("Priority callback");
   });
 });
+
+it("keeps an explicitly offline call offline even when a key is configured", async () => {
+  const data = new LocalDataSource({ persist: false });
+  const call = await createConversation({
+    data,
+    config: { ...config, OPENAI_API_KEY: "configured-but-never-used" },
+    from: "+15555550101",
+    at: "2026-11-11T03:00:00Z",
+    offline: true,
+  });
+  expect(call.context.config.OPENAI_API_KEY).toBeUndefined();
+  const result = await call.turn("I offer $2000 for O001");
+  expect(
+    result.toolCalls.find((tool) => tool.name === "negotiate_offer")?.output,
+  ).toMatchObject({ ok: true, data: { decision: "hard_no" } });
+});
+it("reads new facts between turns instead of keeping a conversation-long cache", async () => {
+  const data = new LocalDataSource({ persist: false });
+  const call = await createConversation({
+    data,
+    config,
+    from: "+15555550199",
+    at: "2026-11-10T19:30:00Z",
+    offline: true,
+  });
+  const first = await call.turn("Are containers available in D01?");
+  const item = (await data.read("Inventory")).find(
+    (row) => row.depot_id === "D01" && row.status === "available",
+  );
+  if (!item) throw new Error("Missing fixture");
+  await data.upsert("Inventory", { ...item, status: "sold" }, item);
+  const second = await call.turn("Are containers available in D01?");
+  const count = (turn: typeof first) => {
+    const output = turn.toolCalls.find(
+      (tool) => tool.name === "availability",
+    )?.output;
+    if (!output) throw new Error("No availability result");
+    return (output as { data: { count: number } }).data.count;
+  };
+  expect(count(second)).toBe(count(first) - 1);
+});
+it("hands off an unknown caller as soon as verification reveals an open issue", async () => {
+  const data = new LocalDataSource({ persist: false });
+  const customer = (await data.read("Customers")).find(
+    (row) => row.customer_id === "C002",
+  );
+  if (!customer) throw new Error("Missing customer");
+  const call = await createConversation({
+    data,
+    config,
+    from: "+15555550199",
+    at: "2026-11-11T03:00:00Z",
+    offline: true,
+  });
+  const result = await call.turn(
+    `My company is ${customer.company}, my order O002 is ready?`,
+  );
+  expect(result.handoff).toBe(true);
+  expect(result.text).toContain("priority callback");
+  expect(await data.read("Outbox")).toHaveLength(1);
+});
+it("records failed tool attempts without exposing backend error details", async () => {
+  const data = new LocalDataSource({ persist: false });
+  const call = await createConversation({
+    data,
+    config,
+    from: "+15555550199",
+    at: "2026-11-11T03:00:00Z",
+    offline: true,
+  });
+  const result = await call.tools.invoke("pricing", { depot_id: 42 });
+  expect(result.ok).toBe(false);
+  expect(call.context.toolCalls.at(-1)).toMatchObject({
+    name: "pricing",
+    error: "ZodError",
+  });
+  expect(result.message).not.toContain("expected");
+});

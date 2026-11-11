@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parse } from "csv-parse/sync";
 import {
   headers,
@@ -9,6 +10,9 @@ import {
   type TableName,
 } from "../domain/schemas.js";
 import { ConflictError, type DataSource } from "./interface.js";
+
+const directoryWrites = new Map<string, Promise<void>>();
+
 export async function readSeed<T extends TableName>(
   table: T,
   seedDirectory = "data/seed",
@@ -77,13 +81,29 @@ export class LocalDataSource implements DataSource {
     }
     await mkdir(this.directory, { recursive: true });
     const path = join(this.directory, `${table}.json`);
-    const temp = `${path}.${process.pid}.tmp`;
+    const temp = `${path}.${process.pid}.${randomUUID()}.tmp`;
     await writeFile(temp, JSON.stringify(rows, null, 2));
     await rename(temp, path);
   }
   private async mutate(action: () => Promise<void>) {
-    const next = this.queue.then(action);
-    this.queue = next.catch(() => {});
+    if (!this.persist) {
+      const next = this.queue.then(action);
+      this.queue = next.catch(() => {});
+      return next;
+    }
+    // HTTP requests create separate adapters. Serialize their local writes in this
+    // process so each final read sees the preceding write before checking conflicts.
+    const directory = resolve(this.directory);
+    const next = (directoryWrites.get(directory) ?? Promise.resolve()).then(
+      action,
+    );
+    const drained = next
+      .catch(() => {})
+      .finally(() => {
+        if (directoryWrites.get(directory) === drained)
+          directoryWrites.delete(directory);
+      });
+    directoryWrites.set(directory, drained);
     return next;
   }
   async replace<T extends TableName>(table: T, rows: Row<T>[], force = false) {

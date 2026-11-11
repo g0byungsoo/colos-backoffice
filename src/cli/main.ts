@@ -10,7 +10,8 @@ import { negotiate } from "../backoffice/negotiation.js";
 import { refreshPrices } from "../backoffice/prices.js";
 import { getConfig } from "../config/index.js";
 import { doctor } from "../data/doctor.js";
-import { createDataSource, seed } from "../data/index.js";
+import { createDataSource, RequestDataSource, seed } from "../data/index.js";
+import { parseCallTime } from "../domain/time.js";
 import { getEmbedder, llmReranker, RagIndex } from "../rag/index.js";
 
 const [command, ...raw] = process.argv.slice(2);
@@ -21,18 +22,23 @@ const option = (key: string) => {
 };
 const print = (value: unknown) => console.log(JSON.stringify(value, null, 2));
 try {
-  const config = getConfig();
-  const at = new Date(option("--at") ?? Date.now());
+  const config = getConfig(
+    args.includes("--offline")
+      ? { ...process.env, OPENAI_API_KEY: "" }
+      : process.env,
+  );
+  const at = parseCallTime(option("--at"), config.TIMEZONE);
   if (Number.isNaN(at.getTime())) throw new Error("Invalid --at timestamp");
   if (command === "doctor") {
     const result = await doctor(config);
     print(result);
     if (!result.ok) process.exitCode = 1;
   } else {
-    const data = createDataSource(config);
+    const raw = createDataSource(config);
+    const data = new RequestDataSource(raw);
     switch (command) {
       case "seed":
-        print(await seed(data, args.includes("--force")));
+        print(await seed(raw, args.includes("--force")));
         break;
       case "index": {
         const index = new RagIndex(
@@ -56,7 +62,7 @@ try {
       }
       case "chat": {
         const conversation = await createConversation({
-          data,
+          data: raw,
           config,
           from: option("--from") ?? "+15555550199",
           at,

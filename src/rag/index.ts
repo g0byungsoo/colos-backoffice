@@ -1,9 +1,10 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Agent, run } from "@openai/agents";
 import OpenAI from "openai";
 import { z } from "zod";
+import { recordUsage } from "../agents/usage.js";
 import type { DataSource } from "../data/index.js";
 
 export interface Embedder {
@@ -56,6 +57,7 @@ export class OpenAIEmbedder implements Embedder {
         encoding_format: "float",
       });
       this.tokens += response.usage.total_tokens;
+      recordUsage({ input: response.usage.total_tokens, output: 0 });
       vectors.push(
         ...response.data
           .sort((a, b) => a.index - b.index)
@@ -81,7 +83,7 @@ const chunkSchema = z.object({
   customer_id: z.string().optional(),
   status: z.enum(["current", "superseded"]),
   hash: z.string(),
-  vector: z.array(z.number()),
+  vector: z.array(z.number().finite()).min(1),
 });
 export type Chunk = z.infer<typeof chunkSchema>;
 export type SearchResult = Omit<Chunk, "vector" | "hash"> & { score: number };
@@ -101,6 +103,9 @@ export function llmReranker(model: string): Reranker {
     const agent = new Agent({
       name: "Retrieval reranker",
       model,
+      modelSettings: model.startsWith("gpt-5")
+        ? { reasoning: { effort: "low" } }
+        : {},
       instructions,
       outputType: z.object({ ids: z.array(z.string()) }),
     });
@@ -109,6 +114,10 @@ export function llmReranker(model: string): Reranker {
       JSON.stringify({ query, candidates: results }),
       { maxTurns: 1 },
     );
+    recordUsage({
+      input: result.runContext.usage.inputTokens,
+      output: result.runContext.usage.outputTokens,
+    });
     const ids = result.finalOutput?.ids ?? [];
     const rank = new Map(ids.map((id, i) => [id, i]));
     return [...results].sort(
@@ -122,6 +131,12 @@ export interface Retriever {
 }
 export class RagIndex implements Retriever {
   private chunks: Chunk[] = [];
+  private built = false;
+  private building?: Promise<{
+    chunks: number;
+    embedded: number;
+    model: string;
+  }>;
   readonly cacheDir: string;
   private reranker?: Reranker;
   constructor(
@@ -133,6 +148,19 @@ export class RagIndex implements Retriever {
     this.reranker = options.reranker;
   }
   async build(): Promise<{ chunks: number; embedded: number; model: string }> {
+    if (this.building) return this.building;
+    this.building = this.buildIndex();
+    try {
+      return await this.building;
+    } finally {
+      this.building = undefined;
+    }
+  }
+  private async buildIndex(): Promise<{
+    chunks: number;
+    embedded: number;
+    model: string;
+  }> {
     const { Knowledge, Notes } = await this.data.readMany([
       "Knowledge",
       "Notes",
@@ -186,17 +214,30 @@ export class RagIndex implements Retriever {
           .map((chunk) => [chunk.hash, chunk.text]),
       ),
     ];
-    const embedded = await this.embedder.embed(missing.map(([, text]) => text));
+    const embedded = missing.length
+      ? await this.embedder.embed(missing.map(([, text]) => text))
+      : [];
+    validateVectors(embedded, missing.length);
     missing.forEach(([hash], i) => {
-      cached.set(hash, embedded[i] ?? []);
+      cached.set(hash, embedded[i]);
     });
-    this.chunks = pending.map((chunk) => ({
+    const chunks = pending.map((chunk) => ({
       ...chunk,
       vector: cached.get(chunk.hash) ?? [],
     }));
-    const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(temporary, JSON.stringify(this.chunks));
-    await rename(temporary, path);
+    validateVectors(
+      chunks.map((chunk) => chunk.vector),
+      chunks.length,
+    );
+    const temporary = `${path}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporary, JSON.stringify(chunks), { flag: "wx" });
+      await rename(temporary, path);
+    } finally {
+      await rm(temporary, { force: true });
+    }
+    this.chunks = chunks;
+    this.built = true;
     return {
       chunks: this.chunks.length,
       embedded: missing.length,
@@ -207,7 +248,8 @@ export class RagIndex implements Retriever {
     query: string,
     options: SearchOptions = {},
   ): Promise<SearchResult[]> {
-    if (!this.chunks.length) await this.build();
+    if (!query.trim()) return [];
+    if (!this.built) await this.build();
     // Filter before every scoring stage. A reranker never sees another account's notes.
     const candidates = this.chunks.filter(
       (chunk) =>
@@ -218,7 +260,9 @@ export class RagIndex implements Retriever {
     const mode = options.mode ?? "hybrid";
     let ranked = bm;
     if (mode !== "bm25") {
-      const [vector] = await this.embedder.embed([query]);
+      const vectors = await this.embedder.embed([query]);
+      validateVectors(vectors, 1, this.chunks[0]?.vector.length);
+      const [vector] = vectors;
       const semantic = candidates
         .map((chunk) => ({ chunk, score: cosine(vector ?? [], chunk.vector) }))
         .sort(byScore);
@@ -238,6 +282,25 @@ export class RagIndex implements Retriever {
       results = await this.reranker(query, results.slice(0, 20));
     }
     return results.slice(0, options.limit ?? 5);
+  }
+}
+function validateVectors(
+  vectors: number[][],
+  expected: number,
+  dimension = vectors[0]?.length,
+): void {
+  if (
+    vectors.length !== expected ||
+    vectors.some(
+      (vector) =>
+        !vector.length ||
+        vector.length !== dimension ||
+        vector.some((value) => !Number.isFinite(value)),
+    )
+  ) {
+    throw new Error(
+      "Embedding response has missing, invalid or inconsistent vectors",
+    );
   }
 }
 function digest(text: string): string {

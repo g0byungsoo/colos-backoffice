@@ -8,11 +8,19 @@ import { currentPricing } from "./invoices.js";
 
 export const offerSchema = z.object({
   order_id: z.string().min(1),
-  offer_cents: z.number().int().nonnegative(),
+  offer_cents: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   email: z.string(),
 });
 // A small explicit envelope keeps model-generated numbers outside the money path.
 export function parseOfferEmail(email: string) {
+  if (
+    [...email.matchAll(/^Order:/gim)].length !== 1 ||
+    [...email.matchAll(/^Offer(?:-Cents)?:/gim)].length !== 1
+  ) {
+    throw new Error(
+      "Provide exactly one Order and one Offer or Offer-Cents header",
+    );
+  }
   const order = /^Order:\s*([A-Za-z0-9_-]+)\s*$/im.exec(email)?.[1];
   const cents = /^Offer-Cents:\s*(\d+)\s*$/im.exec(email)?.[1];
   const dollars = /^Offer:\s*\$(\d+)(?:\.(\d{2}))?\s*$/im.exec(email);

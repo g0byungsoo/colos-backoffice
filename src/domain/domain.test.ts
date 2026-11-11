@@ -174,3 +174,14 @@ describe("routing", () => {
     expect(isBusinessHours(new Date("2026-11-10T16:00:00Z"))).toBe(true);
   });
 });
+
+it("does exact percent math near the safe integer limit", () => {
+  expect(
+    discountCents(
+      Number.MAX_SAFE_INTEGER,
+      [{ ...rule, amount: 99 }],
+      "2026-11-10",
+    ),
+  ).toBe(Number((BigInt(Number.MAX_SAFE_INTEGER) * 99n) / 100n));
+  expect(() => priceFloor(100000, 4999)).toThrow("Floor margin");
+});

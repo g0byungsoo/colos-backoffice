@@ -11,6 +11,17 @@ const config = getConfig({ DATA_SOURCE: "local" });
 const now = new Date("2026-11-11T19:00:00Z");
 const source = () => new LocalDataSource({ persist: false });
 describe("supplier changes", () => {
+  it("records a failed job and alert for an unknown supplier", async () => {
+    const data = source();
+    const result = await refreshPrices(data, config, {
+      now,
+      supplierId: "missing",
+    });
+    expect(result.status).toBe("failed");
+    expect((await data.read("JobRuns"))[0].status).toBe("failed");
+    expect((await data.read("JobRuns"))[0].finished_at).not.toBe("");
+    expect((await data.read("Outbox"))[0].channel).toBe("alert");
+  });
   it("parses captured cents and refuses an unknown layout", async () => {
     const page = parseSupplierPage(
       await readFile("fixtures/suppliers/S01-week2.html", "utf8"),

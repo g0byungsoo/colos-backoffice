@@ -33,7 +33,13 @@ export async function readCredentials(config: SheetsConfig) {
     );
   if (!raw.trim().startsWith("{"))
     raw = Buffer.from(raw, "base64").toString("utf8");
-  return credentialSchema.parse(JSON.parse(raw));
+  try {
+    return credentialSchema.parse(JSON.parse(raw));
+  } catch {
+    throw new Error(
+      "Invalid service account JSON; expected client_email and private_key",
+    );
+  }
 }
 export async function withBackoff<T>(
   action: () => Promise<T>,
@@ -73,6 +79,7 @@ export class SheetsDataSource implements DataSource {
   async readMany<T extends TableName>(
     tables: T[],
   ): Promise<{ [K in T]: Row<K>[] }> {
+    if (!tables.length) return {} as { [K in T]: Row<K>[] };
     const api = await this.api();
     const response = await withBackoff(() =>
       api.spreadsheets.values.batchGet({
@@ -197,13 +204,17 @@ export class SheetsDataSource implements DataSource {
 export class RequestDataSource implements DataSource {
   private cache = new Map<TableName, unknown[]>();
   constructor(readonly source: DataSource) {}
+  // End the request snapshot before the next turn or approval decision.
+  clearCache(): void {
+    this.cache.clear();
+  }
   async read<T extends TableName>(table: T) {
     if (!this.cache.has(table))
       this.cache.set(table, await this.source.read(table));
     return structuredClone(this.cache.get(table)) as Row<T>[];
   }
   async readMany<T extends TableName>(tables: T[]) {
-    const missing = tables.filter((t) => !this.cache.has(t));
+    const missing = [...new Set(tables)].filter((t) => !this.cache.has(t));
     if (missing.length) {
       const loaded = await this.source.readMany(missing);
       for (const t of missing) this.cache.set(t, loaded[t]);

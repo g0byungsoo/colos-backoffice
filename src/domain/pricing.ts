@@ -7,6 +7,8 @@ function money(n: number) {
   return n;
 }
 export function priceFloor(costCents: number, floorMarginCents = 5000) {
+  if (floorMarginCents < 5000)
+    throw new Error("Floor margin must be at least 5000 cents");
   return money(money(costCents) + money(floorMarginCents));
 }
 export function discountCents(
@@ -26,7 +28,7 @@ export function discountCents(
       ...active.map((r) =>
         r.kind === "fixed"
           ? money(r.amount)
-          : Math.floor((listCents * r.amount) / 100),
+          : Number((BigInt(listCents) * BigInt(money(r.amount))) / 100n),
       ),
     ),
   );

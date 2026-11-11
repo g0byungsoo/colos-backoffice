@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
-import { Agent, run } from "@openai/agents";
+import { Agent, AgentsError, Runner } from "@openai/agents";
 import { z } from "zod";
 import type { Config } from "../config/index.js";
 import type { DataSource } from "../data/interface.js";
+import { RequestDataSource } from "../data/sheets.js";
 import { type Reason, reasons, routeCall } from "../domain/routing.js";
 import {
   allowedMoney,
@@ -12,6 +13,7 @@ import {
   unsafeInput,
 } from "./guardrails.js";
 import { type CallContext, createTools, type ToolCall } from "./tools.js";
+import { captureUsage } from "./usage.js";
 export type TurnResult = {
   text: string;
   toolCalls: ToolCall[];
@@ -48,7 +50,13 @@ export async function createConversation(options: {
   offline?: boolean;
   onTool?: (call: ToolCall) => void;
 }) {
-  const { data, config, from } = options;
+  const { from } = options;
+  const offline = options.offline ?? !options.config.OPENAI_API_KEY;
+  const config = offline
+    ? { ...options.config, OPENAI_API_KEY: undefined }
+    : options.config;
+  const data = new RequestDataSource(options.data);
+  const runner = new Runner({ tracingDisabled: true });
   const at = new Date(options.at);
   if (Number.isNaN(at.getTime())) throw new Error("Invalid call time");
   const rows = await data.readMany(["Phones", "Customers", "Issues"]);
@@ -76,7 +84,7 @@ export async function createConversation(options: {
     toolCalls: [],
     retrievedIds: [],
     handoff: false,
-    offline: options.offline ?? !config.OPENAI_API_KEY,
+    offline,
     callId: randomUUID(),
     onTool: options.onTool,
   };
@@ -115,9 +123,12 @@ export async function createConversation(options: {
       previous,
     );
   }
+  if (route.route === "message")
+    await tools.invoke("handoff", { reason: route.reason });
   await persist();
-  await appendLog({ event: "route", route });
+  await appendLog({ event: "route", route, toolCalls: ctx.toolCalls });
   async function turn(text: string): Promise<TurnResult> {
+    data.clearCache();
     const start = performance.now();
     ctx.toolCalls = [];
     ctx.retrievedIds = [];
@@ -131,131 +142,185 @@ export async function createConversation(options: {
         tokens.output += r.usage.outputTokens;
       }
     };
-    if (unsafeInput(text)) {
-      reply =
-        "I cannot follow those instructions. I can help with container questions.";
-      lastReason = "off_topic";
-    } else if (route.route === "person") {
-      ctx.handoff = true;
-      reply = `Connecting you to the owner. ${route.reason}`;
-      lastReason = "existing_order_problem";
-    } else {
-      if (ctx.offline) lastReason = offlineIntent(text);
-      else {
-        const classified = await run(
-          new Agent({
-            name: "Call reason",
-            model: config.OPENAI_MODEL,
-            instructions: prompts.intent,
-            outputType: z.object({ reason: z.enum(reasons) }),
-            inputGuardrails: [inputGuardrail],
-          }),
-          text,
-          { maxTurns: 2 },
-        );
-        lastReason = classified.finalOutput?.reason ?? "not_sure";
-        addUsage(classified.rawResponses);
-      }
-      if (route.route === "message" || lastReason === "existing_order_problem")
-        reply = (await tools.invoke("handoff", { reason: text })).message;
-      else if (ctx.offline) {
-        const order =
-          text.match(/\bO\d{3}\b/i)?.[0].toUpperCase() ?? verifiedOrder;
-        if (order && !ctx.customerId) {
-          const customers = await data.read("Customers");
-          const company = customers.find((c) =>
-            text.toLowerCase().includes(c.company.toLowerCase()),
+    try {
+      if (unsafeInput(text)) {
+        reply =
+          "I cannot follow those instructions. I can help with container questions.";
+        lastReason = "off_topic";
+      } else if (route.route === "person") {
+        ctx.handoff = true;
+        reply = `Connecting you to the owner. ${route.reason}`;
+        lastReason = "existing_order_problem";
+      } else {
+        if (ctx.offline) lastReason = offlineIntent(text);
+        else {
+          const classified = await runner.run(
+            new Agent({
+              name: "Call reason",
+              model: config.OPENAI_MODEL,
+              modelSettings: config.OPENAI_MODEL.startsWith("gpt-5")
+                ? { reasoning: { effort: "low" } }
+                : {},
+              instructions: prompts.intent,
+              outputType: z.object({ reason: z.enum(reasons) }),
+              inputGuardrails: [
+                {
+                  ...inputGuardrail,
+                  execute: async () => ({
+                    tripwireTriggered: unsafeInput(text),
+                    outputInfo: "Current caller message checked.",
+                  }),
+                },
+              ],
+            }),
+            text,
+            { maxTurns: 2 },
           );
-          if (company) {
-            const verified = await tools.invoke("verify_identity", {
-              order_id: order,
-              company: company.company,
+          lastReason = classified.finalOutput?.reason ?? "not_sure";
+          addUsage(classified.rawResponses);
+        }
+        if (
+          route.route === "message" ||
+          lastReason === "existing_order_problem"
+        )
+          reply = (await tools.invoke("handoff", { reason: text })).message;
+        else if (ctx.offline) {
+          const order =
+            text.match(/\bO\d{3}\b/i)?.[0].toUpperCase() ?? verifiedOrder;
+          if (order && !ctx.customerId) {
+            const customers = await data.read("Customers");
+            const company = customers.find((c) =>
+              text.toLowerCase().includes(c.company.toLowerCase()),
+            );
+            if (company) {
+              const verified = await tools.invoke("verify_identity", {
+                order_id: order,
+                company: company.company,
+              });
+              if (verified.ok) verifiedOrder = order;
+            }
+          }
+          const depot = text.match(/\bD\d{2}\b/i)?.[0].toUpperCase();
+          const type = text.match(/\b(?:20|40)(?:HC|GP)\b/i)?.[0].toUpperCase();
+          if (ctx.handoff)
+            reply =
+              "A person will review your message. I cannot promise a resolution time.";
+          else if (lastReason === "availability")
+            reply = (
+              await tools.invoke("availability", {
+                container_type: type ?? null,
+                depot_id: depot ?? null,
+              })
+            ).message;
+          else if (lastReason === "pricing")
+            reply =
+              depot && type
+                ? (
+                    await tools.invoke("pricing", {
+                      depot_id: depot,
+                      container_type: type,
+                    })
+                  ).message
+                : "Which depot and container type do you need?";
+          else if (lastReason === "pickup_status")
+            reply =
+              order && ctx.customerId
+                ? (await tools.invoke("pickup_status", { order_id: order }))
+                    .message
+                : "What is your order number and company name?";
+          else if (lastReason === "pickup_confirmation")
+            reply = order
+              ? (
+                  await tools.invoke("pickup_confirmation", {
+                    order_id: order,
+                    message: text,
+                  })
+                ).message
+              : "What order is this pickup for?";
+          else if (lastReason === "negotiation") {
+            const amount = text.match(/\$([\d,]+(?:\.\d{1,2})?)/);
+            reply =
+              order && amount
+                ? (
+                    await tools.invoke("negotiate_offer", {
+                      order_id: order,
+                      offer_cents: Math.round(
+                        Number(amount[1].replaceAll(",", "")) * 100,
+                      ),
+                    })
+                  ).message
+                : "Please give your order number, company and offer.";
+          } else if (lastReason === "policy") {
+            const found = await tools.invoke("search", { query: text });
+            const hits = found.data as { text: string; source_id: string }[];
+            reply = hits.length
+              ? `${hits[0].text} [${hits[0].source_id}]`
+              : "I could not find a current policy for that question.";
+          } else
+            reply =
+              lastReason === "off_topic"
+                ? "I can help with shipping containers."
+                : "What can I help you with: stock, pickup, pricing or an existing order?";
+        } else {
+          const agent = new Agent({
+            name: "Colos phone",
+            model: config.OPENAI_MODEL,
+            modelSettings: config.OPENAI_MODEL.startsWith("gpt-5")
+              ? { reasoning: { effort: "low" } }
+              : {},
+            instructions: `${prompts.phone}\nCaller context: ${JSON.stringify({ company: customer?.company, verified_customer_id: ctx.customerId, party_type: party?.party_type, reason: lastReason })}`,
+            tools: tools.sdkTools,
+            inputGuardrails: [
+              {
+                ...inputGuardrail,
+                execute: async () => ({
+                  tripwireTriggered: unsafeInput(text),
+                  outputInfo: "Current caller message checked.",
+                }),
+              },
+            ],
+            outputGuardrails: [outputGuardrail(ctx.allowed)],
+          });
+          try {
+            const answer = await runner.run(
+              agent,
+              JSON.stringify([...history, { role: "user", text }]),
+              { maxTurns: 10 },
+            );
+            reply = String(
+              answer.finalOutput ?? "I could not complete that request.",
+            );
+            addUsage(answer.rawResponses);
+          } catch (error) {
+            reply =
+              "I could not safely answer. Please ask the owner to confirm.";
+            if (error instanceof AgentsError && error.state) {
+              tokens.input += error.state.usage.inputTokens;
+              tokens.output += error.state.usage.outputTokens;
+            }
+            await appendLog({
+              error: error instanceof Error ? error.name : "AgentError",
             });
-            if (verified.ok) verifiedOrder = order;
           }
         }
-        const depot = text.match(/\bD\d{2}\b/i)?.[0].toUpperCase();
-        const type = text.match(/\b(?:20|40)(?:HC|GP)\b/i)?.[0].toUpperCase();
-        if (lastReason === "availability")
-          reply = (
-            await tools.invoke("availability", {
-              container_type: type ?? null,
-              depot_id: depot ?? null,
-            })
-          ).message;
-        else if (lastReason === "pricing")
-          reply =
-            depot && type
-              ? (
-                  await tools.invoke("pricing", {
-                    depot_id: depot,
-                    container_type: type,
-                  })
-                ).message
-              : "Which depot and container type do you need?";
-        else if (lastReason === "pickup_status")
-          reply =
-            order && ctx.customerId
-              ? (await tools.invoke("pickup_status", { order_id: order }))
-                  .message
-              : "What is your order number and company name?";
-        else if (lastReason === "pickup_confirmation")
-          reply = order
-            ? (
-                await tools.invoke("pickup_confirmation", {
-                  order_id: order,
-                  message: text,
-                })
-              ).message
-            : "What order is this pickup for?";
-        else if (lastReason === "negotiation") {
-          const amount = text.match(/\$([\d,]+(?:\.\d{1,2})?)/);
-          reply =
-            order && amount
-              ? (
-                  await tools.invoke("negotiate_offer", {
-                    order_id: order,
-                    offer_cents: Math.round(
-                      Number(amount[1].replaceAll(",", "")) * 100,
-                    ),
-                  })
-                ).message
-              : "Please give your order number, company and offer.";
-        } else if (lastReason === "policy") {
-          const found = await tools.invoke("search", { query: text });
-          const hits = found.data as { text: string; source_id: string }[];
-          reply = hits.length
-            ? `${hits[0].text} [${hits[0].source_id}]`
-            : "I could not find a current policy for that question.";
-        } else
-          reply =
-            lastReason === "off_topic"
-              ? "I can help with shipping containers."
-              : "What can I help you with: stock, pickup, pricing or an existing order?";
-      } else {
-        const agent = new Agent({
-          name: "Colos phone",
-          model: config.OPENAI_MODEL,
-          instructions: `${prompts.phone}\nCaller context: ${JSON.stringify({ company: customer?.company, party_type: party?.party_type, reason: lastReason })}`,
-          tools: tools.sdkTools,
-          inputGuardrails: [inputGuardrail],
-          outputGuardrails: [outputGuardrail(ctx.allowed)],
-        });
-        try {
-          const answer = await run(
-            agent,
-            JSON.stringify([...history, { role: "user", text }]),
-            { maxTurns: 10 },
-          );
-          reply = String(
-            answer.finalOutput ?? "I could not complete that request.",
-          );
-          addUsage(answer.rawResponses);
-        } catch (error) {
-          reply = "I could not safely answer. Please ask the owner to confirm.";
-          await appendLog({ error: String(error) });
-        }
       }
+    } catch (error) {
+      if (error instanceof AgentsError && error.state) {
+        tokens.input += error.state.usage.inputTokens;
+        tokens.output += error.state.usage.outputTokens;
+      }
+      reply = "I could not safely answer. Please ask the owner to confirm.";
+      await appendLog({
+        error: error instanceof Error ? error.name : "AgentError",
+        toolCalls: ctx.toolCalls,
+        retrievedIds: ctx.retrievedIds,
+      });
+    }
+    if (ctx.handoff && route.route !== "person") {
+      const handoff = [...ctx.toolCalls]
+        .reverse()
+        .find((call) => call.name === "handoff");
+      if (handoff) reply = (handoff.output as { message: string }).message;
     }
     if (!allowedMoney(reply, ctx.allowed))
       reply = "I need a current pricing lookup before quoting an amount.";
@@ -281,5 +346,12 @@ export async function createConversation(options: {
       `${JSON.stringify({ at: at.toISOString(), mode: ctx.offline ? "offline" : "live", ...(value as object) })}\n`,
     );
   }
-  return { route, turn, finish: persist, context: ctx, tools };
+  async function measuredTurn(text: string) {
+    const { value, usage } = await captureUsage(() => turn(text));
+    value.tokenUsage.input += usage.input;
+    value.tokenUsage.output += usage.output;
+    await appendLog({ event: "turn_usage", tokenUsage: value.tokenUsage });
+    return value;
+  }
+  return { route, turn: measuredTurn, finish: persist, context: ctx, tools };
 }

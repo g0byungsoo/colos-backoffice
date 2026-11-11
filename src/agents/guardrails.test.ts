@@ -51,7 +51,11 @@ describe("validated tool result payloads", () => {
   it("accepts each supported output type", () => {
     const values = [
       { count: 3 },
-      { list_cents: 280000, price_observed_at: "2026-11-10T18:00:00Z" },
+      {
+        supplier_id: "S01",
+        list_cents: 280000,
+        price_observed_at: "2026-11-10T18:00:00Z",
+      },
       { order_id: "O001", status: "ready", ready: true },
       { decision: "needs_approval" },
       [

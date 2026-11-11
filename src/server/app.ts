@@ -1,4 +1,3 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { appendFile, mkdir } from "node:fs/promises";
 import { Hono } from "hono";
 import twilio from "twilio";
@@ -8,27 +7,28 @@ import { type CallContext, createTools } from "../agents/tools.js";
 import { refreshPrices } from "../backoffice/prices.js";
 import type { Config } from "../config/index.js";
 import type { DataSource } from "../data/interface.js";
+import { RequestDataSource } from "../data/sheets.js";
+import { equalSecret, issueCallToken, verifyCallToken } from "../phone/auth.js";
 import { ElevenLabsBridge, type VoiceBridge } from "../phone/elevenlabs.js";
 
-const equal = (a: string, b: string) =>
-  a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
-// Signed state carries only a server-issued call id. Account identity is recovered from its stored call row.
 export function createApp(
   dataFactory: () => DataSource,
   config: Config,
   bridge: VoiceBridge = new ElevenLabsBridge(config),
 ) {
-  const app = new Hono();
-  const sign = (id: string) =>
-    createHmac("sha256", config.TOOL_WEBHOOK_SECRET ?? "dry-run-disabled")
-      .update(id)
-      .digest("hex");
+  const app = new Hono<{ Variables: { data: RequestDataSource } }>();
+  app.use("*", async (c, next) => {
+    c.set("data", new RequestDataSource(dataFactory()));
+    return next();
+  });
   app.onError((error, c) => {
-    console.error(error.message);
-    return c.json({ error: "Request failed", detail: error.message }, 400);
+    return c.json(
+      { error: "Request failed" },
+      error instanceof z.ZodError ? 400 : 500,
+    );
   });
   app.get("/health", async (c) => {
-    const runs = (await dataFactory().read("JobRuns"))
+    const runs = (await c.get("data").read("JobRuns"))
       .filter((r) => r.job === "prices" && r.status === "success")
       .sort((a, b) => b.finished_at.localeCompare(a.finished_at));
     const last = runs[0];
@@ -44,6 +44,13 @@ export function createApp(
     });
   });
   app.use("/twilio/*", async (c, next) => {
+    if (!config.TWILIO_AUTH_TOKEN) {
+      const voice = new twilio.twiml.VoiceResponse();
+      voice.say(
+        "Twilio dry run. Signature validation is not configured. Use local chat to test caller routing.",
+      );
+      return c.body(voice.toString(), 200, { "Content-Type": "text/xml" });
+    }
     if (config.TWILIO_AUTH_TOKEN) {
       const params = Object.fromEntries(
         new URLSearchParams(await c.req.text()),
@@ -64,11 +71,11 @@ export function createApp(
     const form = z
       .object({
         From: z.string().regex(/^\+[1-9]\d{7,14}$/),
-        To: z.string(),
+        To: z.string().regex(/^\+[1-9]\d{7,14}$/),
         CallSid: z.string().optional(),
       })
       .parse(Object.fromEntries(new URLSearchParams(await c.req.text())));
-    const data = dataFactory();
+    const data = c.get("data");
     const conversation = await createConversation({
       data,
       config,
@@ -76,8 +83,10 @@ export function createApp(
       at: new Date(),
     });
     const { context, route } = conversation;
-    if (route.route === "message")
+    if (route.route === "message") {
       await conversation.tools.invoke("handoff", { reason: route.reason });
+      await conversation.finish();
+    }
     const voice = new twilio.twiml.VoiceResponse();
     if (route.route === "person" && config.OWNER_PHONE) {
       const whisper = new URL("/twilio/whisper", c.req.url);
@@ -93,17 +102,30 @@ export function createApp(
     if (route.route === "person") {
       voice.say("Owner transfer dry run. A callback is being recorded.");
       await conversation.tools.invoke("handoff", { reason: route.reason });
+      await conversation.finish();
       return c.body(voice.toString(), 200, { "Content-Type": "text/xml" });
     }
+    if (!config.TOOL_WEBHOOK_SECRET) {
+      voice.say(
+        "Voice tools dry run. The tool webhook secret is not configured.",
+      );
+      return c.body(voice.toString(), 200, { "Content-Type": "text/xml" });
+    }
+    const storedCall = (await data.read("Calls")).find(
+      (row) => row.call_id === context.callId,
+    );
+    if (!storedCall) throw new Error("Call was not saved");
+    const caller = (await data.read("Customers")).find(
+      (row) => row.customer_id === context.customerId,
+    );
     return c.body(
       await bridge.register(form.From, form.To, {
         caller_name:
-          (await data.read("Customers")).find(
-            (row) => row.customer_id === context.customerId,
-          )?.company ?? "Unknown caller",
+          caller?.contact_name ?? context.party?.label ?? "Unknown caller",
+        caller_company: caller?.company ?? "",
         open_items: route.reason,
         call_id: context.callId,
-        call_token: sign(context.callId),
+        call_token: issueCallToken(storedCall, config.TOOL_WEBHOOK_SECRET),
       }),
       200,
       { "Content-Type": "text/xml" },
@@ -111,7 +133,7 @@ export function createApp(
   });
   app.post("/twilio/whisper", async (c) => {
     const id = c.req.query("call_id");
-    const row = (await dataFactory().read("Calls")).find(
+    const row = (await c.get("data").read("Calls")).find(
       (r) => r.call_id === id,
     );
     const voice = new twilio.twiml.VoiceResponse();
@@ -120,23 +142,29 @@ export function createApp(
   });
   app.post("/tools/:name", async (c) => {
     if (
+      !config.TWILIO_AUTH_TOKEN ||
       !config.TOOL_WEBHOOK_SECRET ||
-      !equal(c.req.header("x-tool-secret") ?? "", config.TOOL_WEBHOOK_SECRET)
+      !equalSecret(
+        c.req.header("x-tool-secret") ?? "",
+        config.TOOL_WEBHOOK_SECRET,
+      )
     )
       return c.json({ error: "Tool endpoint disabled or unauthorized" }, 401);
     const request = z
-      .object({
-        call_id: z.string(),
+      .strictObject({
+        call_id: z.string().uuid(),
         call_token: z.string(),
         input: z.unknown(),
       })
       .parse(await c.req.json());
-    if (!equal(request.call_token, sign(request.call_id)))
-      return c.json({ error: "Invalid call token" }, 403);
-    const data = dataFactory();
+    const data = c.get("data");
     const rows = await data.readMany(["Calls", "Phones"]);
     const call = rows.Calls.find((r) => r.call_id === request.call_id);
-    if (!call) return c.json({ error: "Unknown call" }, 404);
+    if (
+      !call ||
+      !verifyCallToken(request.call_token, call, config.TOOL_WEBHOOK_SECRET)
+    )
+      return c.json({ error: "Invalid or expired call token" }, 403);
     // A call-scoped signed state is supplied by the bridge, not a model-chosen customer id.
     const party = rows.Phones.find((r) => r.phone_e164 === call.from_e164);
     const stateSchema = z.object({
@@ -160,10 +188,10 @@ export function createApp(
       offline: !config.OPENAI_API_KEY,
       callId: call.call_id,
     };
-    const output = await createTools(ctx).invoke(
-      c.req.param("name"),
-      request.input,
-    );
+    const tools = createTools(ctx);
+    if (!tools.names.includes(c.req.param("name")))
+      return c.json({ error: "Unknown tool" }, 404);
+    const output = await tools.invoke(c.req.param("name"), request.input);
     await data.upsert(
       "Calls",
       {
@@ -186,13 +214,13 @@ export function createApp(
   app.get("/cron/prices", async (c) => {
     if (
       !config.CRON_SECRET ||
-      !equal(
+      !equalSecret(
         c.req.header("authorization") ?? "",
         `Bearer ${config.CRON_SECRET}`,
       )
     )
       return c.json({ error: "Cron disabled or unauthorized" }, 401);
-    return c.json(await refreshPrices(dataFactory(), config));
+    return c.json(await refreshPrices(c.get("data"), config));
   });
   return app;
 }

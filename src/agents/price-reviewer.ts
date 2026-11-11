@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { Agent, Runner } from "@openai/agents";
 import { z } from "zod";
 import type { Config } from "../config/index.js";
+import { recordUsage } from "./usage.js";
 export const priceChangeSchema = z.object({
   depot_id: z.string(),
   container_type: z.string(),
@@ -30,6 +31,9 @@ export async function reviewPriceChanges(config: Config, raw: unknown) {
   const agent = new Agent({
     name: "Price change reviewer",
     model: config.OPENAI_MODEL,
+    modelSettings: config.OPENAI_MODEL.startsWith("gpt-5")
+      ? { reasoning: { effort: "low" } }
+      : {},
     instructions: await readFile("prompts/price-reviewer.md", "utf8"),
     outputType: priceReviewSchema,
   });
@@ -37,6 +41,10 @@ export async function reviewPriceChanges(config: Config, raw: unknown) {
     agent,
     JSON.stringify(changes),
   );
+  recordUsage({
+    input: result.runContext.usage.inputTokens,
+    output: result.runContext.usage.outputTokens,
+  });
   const review = priceReviewSchema.parse(result.finalOutput);
   return {
     ...review,

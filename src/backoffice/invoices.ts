@@ -148,7 +148,24 @@ export async function previewInvoice(
       r.idempotency_key === `colos-${preview.fingerprint}` &&
       r.status !== "void",
   );
-  if (existing) return { ...preview, invoice: existing };
+  if (existing) {
+    if (!matchesPreview(existing, preview))
+      throw new Error("Stored invoice no longer matches its preview");
+    const approval = (await data.read("Approvals")).find(
+      (r) => r.approval_id === `APP-${existing.invoice_id}`,
+    );
+    if (!approval && existing.status === "preview")
+      await data.upsert("Approvals", {
+        approval_id: `APP-${existing.invoice_id}`,
+        kind: "invoice",
+        ref_id: existing.invoice_id,
+        payload_json: JSON.stringify(preview),
+        status: "pending",
+        requested_at: (options.now ?? new Date()).toISOString(),
+        decided_at: "",
+      });
+    return { ...preview, invoice: existing };
+  }
   const version = Math.max(0, ...invoices.map((r) => r.version)) + 1;
   const invoice = schemas.Invoices.parse({
     invoice_id: `INV-${orderId}-${version}`,
@@ -228,6 +245,8 @@ async function writeWire(
   invoiceId: string,
   config: Config,
 ) {
+  if (!/^[A-Za-z0-9_-]+$/.test(invoiceId))
+    throw new Error("Unsafe invoice file name");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile("fixtures/invoices/wire-template.xlsx");
   const sheet = workbook.getWorksheet("Invoice");
@@ -256,13 +275,13 @@ async function writeWire(
   await workbook.xlsx.writeFile(path);
   return path;
 }
-export async function sendInvoice(
+async function sendInvoiceUnlocked(
   data: DataSource,
   config: Config,
   orderId: string,
   options: InvoiceOptions = {},
 ) {
-  const invoice = (await data.read("Invoices"))
+  let invoice = (await data.read("Invoices"))
     .filter(
       (r) =>
         r.order_id === orderId &&
@@ -309,44 +328,83 @@ export async function sendInvoice(
       throw new Error("Only Stripe test keys are allowed");
     const stripe = new Stripe(config.STRIPE_SECRET_KEY);
     const key = invoice.idempotency_key;
-    const customer = await stripe.customers.create(
-      {
-        email: preview.customer.email,
-        name: preview.customer.company,
-        metadata: { colos_customer_id: preview.customer.customer_id },
-      },
-      { idempotencyKey: `${key}-customer` },
-    );
-    const draft = await stripe.invoices.create(
-      {
-        customer: customer.id,
-        collection_method: "send_invoice",
-        days_until_due: 7,
-        auto_advance: false,
-        metadata: { colos_invoice_id: invoice.invoice_id },
-      },
-      { idempotencyKey: `${key}-invoice` },
-    );
-    await stripe.invoiceItems.create(
-      {
-        customer: customer.id,
+    let draft: Awaited<ReturnType<typeof stripe.invoices.retrieve>>;
+    if (stripeId) {
+      draft = await stripe.invoices.retrieve(stripeId);
+      if (draft.metadata?.colos_invoice_id !== invoice.invoice_id)
+        throw new Error("Stripe invoice identity mismatch");
+    } else {
+      const customer = await stripe.customers.create(
+        {
+          email: preview.customer.email,
+          name: preview.customer.company,
+          metadata: { colos_customer_id: preview.customer.customer_id },
+        },
+        { idempotencyKey: `${key}-customer` },
+      );
+      draft = await stripe.invoices.create(
+        {
+          customer: customer.id,
+          collection_method: "send_invoice",
+          days_until_due: 7,
+          auto_advance: false,
+          metadata: { colos_invoice_id: invoice.invoice_id },
+        },
+        { idempotencyKey: `${key}-invoice` },
+      );
+      stripeId = draft.id;
+      const saved = { ...invoice, stripe_invoice_id: stripeId };
+      await data.upsert("Invoices", saved, invoice);
+      invoice = saved;
+    }
+    const customerId =
+      typeof draft.customer === "string" ? draft.customer : draft.customer?.id;
+    if (!customerId || draft.livemode)
+      throw new Error("Expected a Stripe test invoice with a customer");
+    if (draft.status === "draft") {
+      const items = await stripe.invoiceItems.list({
         invoice: draft.id,
-        amount: preview.totalCents,
-        currency: "usd",
-        description: `${preview.qty} x ${preview.container_type}, order ${orderId}`,
-      },
-      { idempotencyKey: `${key}-item` },
-    );
-    await stripe.invoices.finalizeInvoice(
-      draft.id,
-      {},
-      { idempotencyKey: `${key}-finalize` },
-    );
-    await stripe.invoices.sendInvoice(
-      draft.id,
-      {},
-      { idempotencyKey: `${key}-send` },
-    );
+        limit: 100,
+      });
+      if (items.has_more || items.data.length > 1)
+        throw new Error("Unexpected Stripe invoice items");
+      if (items.data.length === 0) {
+        await stripe.invoiceItems.create(
+          {
+            customer: customerId,
+            invoice: draft.id,
+            amount: preview.totalCents,
+            currency: "usd",
+            description: `${preview.qty} x ${preview.container_type}, order ${orderId}`,
+            metadata: { colos_invoice_id: invoice.invoice_id },
+          },
+          { idempotencyKey: `${key}-item` },
+        );
+      } else if (
+        items.data[0]?.amount !== preview.totalCents ||
+        items.data[0]?.currency !== "usd" ||
+        items.data[0]?.metadata?.colos_invoice_id !== invoice.invoice_id
+      ) {
+        throw new Error("Stripe invoice item differs from approved preview");
+      }
+      draft = await stripe.invoices.finalizeInvoice(
+        draft.id,
+        {},
+        { idempotencyKey: `${key}-finalize` },
+      );
+    }
+    if (draft.total !== preview.totalCents || draft.currency !== "usd")
+      throw new Error("Stripe invoice total differs from approved preview");
+    if (draft.status === "open")
+      await stripe.invoices.sendInvoice(
+        draft.id,
+        {},
+        { idempotencyKey: `${key}-send` },
+      );
+    else if (draft.status !== "paid")
+      throw new Error(
+        `Stripe invoice cannot be sent in status ${draft.status}`,
+      );
     stripeId = draft.id;
   } else {
     path = await writeWire(preview, invoice.invoice_id, config);
@@ -356,17 +414,51 @@ export async function sendInvoice(
     status: "sent" as const,
     stripe_invoice_id: stripeId,
   };
+  const existingMessage = (await data.read("Outbox")).find(
+    (row) => row.message_id === `SEND-${invoice.invoice_id}`,
+  );
+  await data.upsert(
+    "Outbox",
+    {
+      message_id: `SEND-${invoice.invoice_id}`,
+      channel: "email",
+      to: preview.customer.email,
+      subject: `Invoice ${invoice.invoice_id}`,
+      body: path
+        ? `Wire invoice prepared: ${path}. Dry-run: email delivery is not configured. No bank details are supplied in this synthetic rebuild.`
+        : `Stripe test invoice ${stripeId} issued.`,
+      status: path ? "pending" : "sent",
+      created_at:
+        existingMessage?.created_at ??
+        (options.now ?? new Date()).toISOString(),
+    },
+    existingMessage,
+  );
   await data.upsert("Invoices", sent, invoice);
-  await data.upsert("Outbox", {
-    message_id: `SEND-${invoice.invoice_id}`,
-    channel: "email",
-    to: preview.customer.email,
-    subject: `Invoice ${invoice.invoice_id}`,
-    body: path
-      ? `Wire invoice prepared: ${path}. Dry-run: email delivery is not configured. No bank details are supplied in this synthetic rebuild.`
-      : `Stripe test invoice ${stripeId} issued.`,
-    status: path ? "pending" : "sent",
-    created_at: (options.now ?? new Date()).toISOString(),
-  });
   return { invoice: sent, path, mode: path ? "dry-run" : "test" };
+}
+
+// Serialize local calls sharing a source. Sheets still requires a single billing worker.
+const sends = new WeakMap<DataSource, Map<string, Promise<unknown>>>();
+export async function sendInvoice(
+  data: DataSource,
+  config: Config,
+  orderId: string,
+  options: InvoiceOptions = {},
+) {
+  let queue = sends.get(data);
+  if (!queue) {
+    queue = new Map();
+    sends.set(data, queue);
+  }
+  const previous = queue.get(orderId) ?? Promise.resolve();
+  const next = previous
+    .catch(() => {})
+    .then(() => sendInvoiceUnlocked(data, config, orderId, options));
+  queue.set(orderId, next);
+  try {
+    return await next;
+  } finally {
+    if (queue.get(orderId) === next) queue.delete(orderId);
+  }
 }

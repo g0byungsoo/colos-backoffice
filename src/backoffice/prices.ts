@@ -92,7 +92,34 @@ export async function refreshPrices(
     error?: string;
     mode?: string;
   }[] = [];
-  if (!suppliers.length) throw new Error("Supplier not found");
+  if (!suppliers.length) {
+    const detail = "Supplier not found";
+    await data.upsert(
+      "JobRuns",
+      {
+        ...run,
+        status: "failed",
+        finished_at: new Date().toISOString(),
+        detail,
+      },
+      run,
+    );
+    await data.upsert("Outbox", {
+      message_id: randomUUID(),
+      channel: "alert",
+      to: config.OWNER_PHONE ?? "owner",
+      subject: "Price refresh failed",
+      body: detail,
+      status: "pending",
+      created_at: now.toISOString(),
+    });
+    return {
+      status: "failed" as const,
+      results: [
+        { supplier_id: options.supplierId ?? "", appended: 0, error: detail },
+      ],
+    };
+  }
   for (const supplier of suppliers) {
     try {
       const source =

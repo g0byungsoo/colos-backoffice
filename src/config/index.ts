@@ -10,8 +10,8 @@ export const envSchema = z.object({
   GOOGLE_SHEET_ID: optional,
   GOOGLE_SERVICE_ACCOUNT_JSON: optional,
   GOOGLE_APPLICATION_CREDENTIALS: optional,
-  OPENAI_MODEL: z.string().default("gpt-5.4-mini"),
-  OPENAI_JUDGE_MODEL: z.string().default("gpt-5.6-terra"),
+  OPENAI_MODEL: z.string().default("gpt-5-mini"),
+  OPENAI_JUDGE_MODEL: z.string().default("gpt-5"),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   DATA_SOURCE: z.enum(["sheets", "local"]).default("sheets"),
   TIMEZONE: z

@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-export const cents = z.coerce
-  .number()
-  .int()
-  .nonnegative()
-  .max(Number.MAX_SAFE_INTEGER);
+export const cents = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? Number.NaN : value,
+  z.coerce.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+);
 const id = z.string().min(1);
 const utc = z.string().datetime({ offset: false });
 const maybeUtc = z.union([utc, z.literal("")]);

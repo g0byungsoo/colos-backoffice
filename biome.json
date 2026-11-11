@@ -1,13 +1,32 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
-  "files": { "includes": ["src/**/*.ts", "evals/**/*.ts", "api/**/*.ts"] },
-  "formatter": { "enabled": true, "indentStyle": "space" },
+  "files": {
+    "includes": [
+      "src/**/*.ts",
+      "evals/**/*.ts",
+      "api/**/*.ts",
+      "test/**/*.ts",
+      "vitest.config.ts"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space"
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "suspicious": { "noExplicitAny": "off" }
+      "suspicious": {
+        "noExplicitAny": "off"
+      }
     }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
 }

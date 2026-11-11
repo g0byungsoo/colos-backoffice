@@ -8,6 +8,23 @@ export async function seed(
   source: LocalDataSource | SheetsDataSource,
   force = false,
 ): Promise<string[]> {
+  // Validate all fixture inputs before any tab or local file is changed.
+  const seedRows = new Map(
+    await Promise.all(
+      tableNames.map(
+        async (table) =>
+          [
+            table,
+            await readSeed(
+              table,
+              source instanceof LocalDataSource
+                ? source.seedDirectory
+                : undefined,
+            ),
+          ] as const,
+      ),
+    ),
+  );
   if (source instanceof LocalDataSource) {
     for (const table of tableNames) {
       if (source.persist && !force) {
@@ -21,11 +38,7 @@ export async function seed(
       }
     }
     for (const table of tableNames)
-      await source.replace(
-        table,
-        await readSeed(table, source.seedDirectory),
-        true,
-      );
+      await source.replace(table, seedRows.get(table) ?? [], true);
     return tableNames;
   }
   const api = await source.api();
@@ -48,11 +61,18 @@ export async function seed(
         ranges: present.map((t) => `'${t}'!A:ZZ`),
       }),
     );
-    for (const [index, range] of (values.data.valueRanges ?? []).entries())
-      if (
-        (range.values?.slice(1) ?? []).some((row) => row.some((v) => v !== ""))
-      )
-        throw new Error(`${present[index]} already contains data; use --force`);
+    for (const [index, range] of (values.data.valueRanges ?? []).entries()) {
+      const table = present[index];
+      const rows = range.values ?? [];
+      const hasRows = rows
+        .slice(1)
+        .some((row) => row.some((value) => value !== ""));
+      const hasUnknownHeader =
+        rows[0]?.some((value) => value !== "") &&
+        JSON.stringify(rows[0]) !== JSON.stringify(headers[table]);
+      if (hasRows || hasUnknownHeader)
+        throw new Error(`${table} already contains data; use --force`);
+    }
   }
   const missing = tableNames.filter((t) => !existing.has(t));
   if (missing.length) {
@@ -104,7 +124,7 @@ export async function seed(
       range: `'${table}'!A1`,
       values: [
         headers[table],
-        ...(await readSeed(table)).map((row) =>
+        ...(seedRows.get(table) ?? []).map((row) =>
           headers[table].map((key) => (row as Record<string, unknown>)[key]),
         ),
       ],

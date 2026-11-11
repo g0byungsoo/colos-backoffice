@@ -7,12 +7,14 @@ import type { DataSource } from "../data/interface.js";
 import { decideOffer, isPriceStale } from "../domain/pricing.js";
 import { isBusinessHours } from "../domain/routing.js";
 import { type Row, schemas } from "../domain/schemas.js";
+import { toolInputs } from "../domain/tool-contracts.js";
 import { getEmbedder, llmReranker, RagIndex } from "../rag/index.js";
 export type ToolCall = {
   name: string;
   input: unknown;
   output: unknown;
   ms: number;
+  error?: string;
 };
 export type CallContext = {
   data: DataSource;
@@ -34,6 +36,7 @@ export const availabilityPayloadSchema = z.strictObject({
   count: z.number().int().nonnegative(),
 });
 export const pricingPayloadSchema = z.strictObject({
+  supplier_id: z.string().min(1),
   list_cents: safeCents,
   price_observed_at: z.string().datetime(),
 });
@@ -75,6 +78,7 @@ export const toolResultSchema = z.strictObject({
     .optional(),
 });
 export function createTools(ctx: CallContext) {
+  if (ctx.offline) ctx.config = { ...ctx.config, OPENAI_API_KEY: undefined };
   const handlers: Record<
     string,
     {
@@ -83,7 +87,7 @@ export function createTools(ctx: CallContext) {
     }
   > = {
     verify_identity: {
-      input: z.object({ order_id: z.string(), company: z.string() }),
+      input: toolInputs.verify_identity,
       execute: async (v) => {
         const rows = await ctx.data.readMany(["Orders", "Customers"]);
         const order = rows.Orders.find((o) => o.order_id === v.order_id);
@@ -101,14 +105,25 @@ export function createTools(ctx: CallContext) {
             message: "Order and company do not match this caller.",
           };
         ctx.customerId = customer.customer_id;
+        const issues = (await ctx.data.read("Issues")).filter(
+          (issue) =>
+            issue.customer_id === customer.customer_id &&
+            issue.status === "open",
+        );
+        if (issues.length) {
+          const handoff = await invoke("handoff", {
+            reason: issues
+              .map((issue) => issue.summary)
+              .join("; ")
+              .slice(0, 240),
+          });
+          return { ok: true, message: `Identity verified. ${handoff.message}` };
+        }
         return { ok: true, message: "Identity verified." };
       },
     },
     availability: {
-      input: z.object({
-        container_type: z.string().nullable(),
-        depot_id: z.string().nullable(),
-      }),
+      input: toolInputs.availability,
       execute: async (v) => {
         const rows = await ctx.data.read("Inventory");
         const found = rows.filter(
@@ -125,7 +140,7 @@ export function createTools(ctx: CallContext) {
       },
     },
     pickup_status: {
-      input: z.object({ order_id: z.string() }),
+      input: toolInputs.pickup_status,
       execute: async (v) => {
         const rows = await ctx.data.readMany(["Orders", "Inventory"]);
         const order = rows.Orders.find((o) => o.order_id === v.order_id);
@@ -147,7 +162,7 @@ export function createTools(ctx: CallContext) {
       },
     },
     pricing: {
-      input: z.object({ depot_id: z.string(), container_type: z.string() }),
+      input: toolInputs.pricing,
       execute: async (v) => {
         const rows = await ctx.data.readMany([
           "PriceList",
@@ -204,6 +219,7 @@ export function createTools(ctx: CallContext) {
           ok: true,
           message: `The list price is $${(list.list_cents / 100).toFixed(2)} per container.`,
           data: {
+            supplier_id: price.supplier_id,
             list_cents: list.list_cents,
             price_observed_at: price.observed_at,
           },
@@ -211,7 +227,7 @@ export function createTools(ctx: CallContext) {
       },
     },
     search: {
-      input: z.object({ query: z.string() }),
+      input: toolInputs.search,
       execute: async (v) => {
         const index = new RagIndex(
           ctx.data,
@@ -239,7 +255,7 @@ export function createTools(ctx: CallContext) {
       },
     },
     handoff: {
-      input: z.object({ reason: z.string() }),
+      input: toolInputs.handoff,
       execute: async (v) => {
         ctx.handoff = true;
         const daytime = isBusinessHours(
@@ -272,7 +288,7 @@ export function createTools(ctx: CallContext) {
       },
     },
     pickup_confirmation: {
-      input: z.object({ order_id: z.string(), message: z.string() }),
+      input: toolInputs.pickup_confirmation,
       execute: async (v) => {
         if (
           ctx.party?.party_type !== "depot" &&
@@ -312,10 +328,7 @@ export function createTools(ctx: CallContext) {
       },
     },
     negotiate_offer: {
-      input: z.object({
-        order_id: z.string(),
-        offer_cents: z.number().int().nonnegative(),
-      }),
+      input: toolInputs.negotiate_offer,
       execute: async (v) => {
         const order = (await ctx.data.read("Orders")).find(
           (o) => o.order_id === v.order_id && o.customer_id === ctx.customerId,
@@ -377,16 +390,29 @@ export function createTools(ctx: CallContext) {
     },
   };
   async function invoke(name: string, input: unknown) {
-    const spec = handlers[name];
-    if (!spec) throw new Error("Unknown tool");
     const start = performance.now();
-    const parsed = spec.input.parse(input);
-    const output = toolResultSchema.parse(await spec.execute(parsed));
-    const record = {
+    let parsed: unknown = input;
+    let output: z.infer<typeof toolResultSchema>;
+    let errorName: string | undefined;
+    try {
+      const spec = handlers[name];
+      if (!spec) throw new Error("Unknown tool");
+      parsed = spec.input.parse(input);
+      output = toolResultSchema.parse(await spec.execute(parsed));
+    } catch (error) {
+      errorName = error instanceof Error ? error.name : "ToolError";
+      output = {
+        ok: false,
+        message:
+          "The lookup could not be completed. Please ask the owner to confirm.",
+      };
+    }
+    const record: ToolCall = {
       name,
       input: parsed,
       output,
       ms: performance.now() - start,
+      ...(errorName ? { error: errorName } : {}),
     };
     ctx.toolCalls.push(record);
     ctx.onTool?.(record);
@@ -397,6 +423,17 @@ export function createTools(ctx: CallContext) {
       name,
       description: `Colos ${name}. Account access is checked by code.`,
       parameters: spec.input as z.ZodObject<any>,
+      isEnabled: () => {
+        if (ctx.handoff) return name === "handoff";
+        if (name === "pickup_status" || name === "negotiate_offer")
+          return Boolean(ctx.customerId);
+        if (name === "pickup_confirmation")
+          return (
+            ctx.party?.party_type === "depot" ||
+            ctx.party?.party_type === "supplier"
+          );
+        return true;
+      },
       execute: async (input) => JSON.stringify(await invoke(name, input)),
     }),
   );
